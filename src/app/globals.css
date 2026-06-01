@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+
+:root {
+  --bg: #0c0a0f;
+  --panel: #16131c;
+  --panel2: #1d1925;
+  --ink: #ece6dd;
+  --muted: #8b8295;
+  --amber: #e8a13a;
+  --amber-dim: #9a6f2c;
+  --red: #df4b42;
+  --green: #5fb05a;
+  --line: rgba(255, 255, 255, 0.08);
+
+  --font-mono: 'Oswald', sans-serif;
+  --font-body: 'Noto Sans SC', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--amber);
+  margin-right: 8px;
+  animation: pulse 1s infinite;
+}
+
+@media (max-width: 820px) {
+  .board {
+    grid-template-columns: 1fr !important;
+  }
+}
