@@ -214,8 +214,11 @@ async function runVolcengine(spec: { schema: JsonSchema }, prompt: string, model
         { role: "system", content: `${SYSTEM} ${jsonShapeHint(spec.schema)}` },
         { role: "user", content: prompt },
       ],
-      temperature: 0.8,
-      max_tokens: 1024,
+      temperature: 0.9,
+      // doubao-seed is a reasoning model: chain-of-thought consumes tokens before
+      // the JSON content. Give ample headroom so richer prompts never truncate the
+      // content (which would yield an empty clue).
+      max_tokens: 3072,
     }),
   });
   const data = (await res.json()) as {
