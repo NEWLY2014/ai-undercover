@@ -20,6 +20,13 @@ yarn-debug.log*
 yarn-error.log*
 *.log
 
+# telemetry / backend event logs (logs/undercover-YYYY-MM-DD.jsonl)
+/logs/
+
+# scratch captured server output
+.srv.out
+.srv.err
+
 # local tooling / scratch
 /.claude
 *.tmp
