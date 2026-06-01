@@ -32,7 +32,13 @@ const DIFFICULTY_OPTIONS = [
   { value: "3", label: "困难(很接近)" },
 ];
 
-export default function Setup({ onStart }: { onStart: (c: GameConfig) => void }) {
+export default function Setup({
+  onStart,
+  onTutorial,
+}: {
+  onStart: (c: GameConfig) => void;
+  onTutorial: () => void;
+}) {
   const [total, setTotal] = useState(5);
   const [human, setHuman] = useState<0 | 1>(0);
   const [spyCount, setSpyCount] = useState(1);
@@ -85,6 +91,27 @@ export default function Setup({ onStart }: { onStart: (c: GameConfig) => void })
     <div style={S.setup}>
       <h2 style={S.setupTitle}>开一局</h2>
       <p style={S.setupP}>配置玩家、卧底数与词，然后看 AI 在牌桌上互相试探。最多可加入 1 名真人(你)。</p>
+
+      <button
+        onClick={onTutorial}
+        style={{
+          width: "100%",
+          fontFamily: "var(--font-body)",
+          fontSize: 14,
+          color: "var(--amber)",
+          background: "rgba(232,161,58,.08)",
+          borderWidth: 1,
+          borderStyle: "solid",
+          borderColor: "var(--amber-dim)",
+          borderRadius: 10,
+          padding: "11px 14px",
+          cursor: "pointer",
+          marginBottom: 16,
+          textAlign: "left",
+        }}
+      >
+        📖 第一次玩？点这里进入<b>新手教学</b> —— 边玩边学规则与技巧 →
+      </button>
 
       <div style={S.fieldRow}>
         <div style={S.field}>

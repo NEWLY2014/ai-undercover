@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Board from "@/components/Board";
 import Setup from "@/components/Setup";
 import StatsPanel from "@/components/StatsPanel";
+import { TutorialIntro } from "@/components/Tutorial";
+import type { GameConfig } from "@/game/types";
 import { S } from "@/app/styles";
 import { recordGame } from "@/lib/stats";
 import { useGameLoop } from "@/store/useGameLoop";
@@ -12,7 +14,21 @@ export default function Home() {
   const g = useGameLoop();
   const [guess, setGuess] = useState<number | null>(null);
   const [statsVersion, setStatsVersion] = useState(0);
+  const [tutorialIntro, setTutorialIntro] = useState(false);
   const recordedRef = useRef(false);
+
+  // Fixed, beginner-friendly setup for the guided practice game.
+  const TUTORIAL_CONFIG: GameConfig = {
+    totalPlayers: 4,
+    humanPlayers: 1,
+    spyCount: 1,
+    blankEnabled: false,
+    wordPairId: "cat-tiger",
+    theme: null,
+    difficulty: null,
+    devMode: false,
+    tutorial: true,
+  };
 
   // Record the finished game exactly once (when a winner is first decided).
   useEffect(() => {
@@ -46,15 +62,27 @@ export default function Home() {
         </header>
 
         {g.phase === "setup" ? (
-          <>
-            <Setup
-              onStart={(c) => {
+          tutorialIntro ? (
+            <TutorialIntro
+              onStart={() => {
                 setGuess(null);
-                g.startGame(c);
+                g.startGame(TUTORIAL_CONFIG);
+                setTutorialIntro(false);
               }}
+              onBack={() => setTutorialIntro(false)}
             />
-            <StatsPanel version={statsVersion} />
-          </>
+          ) : (
+            <>
+              <Setup
+                onStart={(c) => {
+                  setGuess(null);
+                  g.startGame(c);
+                }}
+                onTutorial={() => setTutorialIntro(true)}
+              />
+              <StatsPanel version={statsVersion} />
+            </>
+          )
         ) : (
           <Board
             players={g.players}
@@ -68,6 +96,7 @@ export default function Home() {
             pair={g.pair}
             humanTurn={g.humanTurn}
             devMode={g.devMode}
+            tutorial={g.tutorial}
             suspicion={g.suspicion}
             suspecting={g.suspecting}
             order={g.order}

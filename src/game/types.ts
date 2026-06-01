@@ -90,6 +90,7 @@ export interface GameConfig {
   theme: string | null; // null = any
   difficulty: number | null; // null = any
   devMode: boolean; // developer mode: after every statement, all AI agents re-score suspicion
+  tutorial?: boolean; // guided teaching game: rules intro + phase hints + AI reasoning shown
   // Advanced settings: per-AI-seat overrides (name/emoji/trait/thinkingStyle/model/attributes).
   // When absent, defaults from PERSONAS are used. Length should match AI seat count.
   aiSlots?: AgentProfile[];

@@ -55,6 +55,7 @@ export function useGameLoop() {
   const [error, setError] = useState<string | null>(null);
   const [humanTurn, setHumanTurn] = useState<HumanTurn | null>(null);
   const [devMode, setDevMode] = useState(false);
+  const [tutorial, setTutorial] = useState(false);
   const [suspicion, setSuspicion] = useState<SuspicionSnapshot[]>([]);
   const [suspecting, setSuspecting] = useState(false);
   const [reflecting, setReflecting] = useState(false);
@@ -191,6 +192,7 @@ export function useGameLoop() {
     setHumanTurn(null);
     setDevMode(config.devMode);
     devModeRef.current = config.devMode;
+    setTutorial(!!config.tutorial);
     setSuspicion([]);
     setLog([
       {
@@ -599,6 +601,7 @@ export function useGameLoop() {
     error,
     humanTurn,
     devMode,
+    tutorial,
     suspicion,
     suspecting,
     reflecting,

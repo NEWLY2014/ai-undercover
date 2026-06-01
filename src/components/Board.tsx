@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { S } from "@/app/styles";
 import MemoryPanel from "@/components/MemoryPanel";
 import SuspicionPanel from "@/components/SuspicionPanel";
+import { TutorialCoach } from "@/components/Tutorial";
 import type { LogEntry, Phase, Player, SuspicionSnapshot, Winner, WordPair } from "@/game/types";
 import type { HumanTurn } from "@/store/useGameLoop";
 
@@ -237,6 +238,7 @@ export interface BoardProps {
   pair: WordPair | null;
   humanTurn: HumanTurn | null;
   devMode: boolean;
+  tutorial: boolean;
   suspicion: SuspicionSnapshot[];
   suspecting: boolean;
   order: number[];
@@ -250,7 +252,7 @@ export interface BoardProps {
 }
 
 export default function Board(props: BoardProps) {
-  const { players, log, busy, speakingId, phase, round, winner, error, pair, humanTurn, guess, devMode, suspicion, suspecting, order } = props;
+  const { players, log, busy, speakingId, phase, round, winner, error, pair, humanTurn, guess, devMode, tutorial, suspicion, suspecting, order } = props;
   // Order seats by this round's speaking order; eliminated players sink to the end.
   const orderPos = new Map(order.map((id, i) => [id, i]));
   const orderedPlayers = [...players].sort((a, b) => {
@@ -266,12 +268,13 @@ export default function Board(props: BoardProps) {
   const hasHuman = players.some((p) => p.kind === "human");
   // Agent private reasoning (💭) is a developer-mode insight during play; in
   // normal play it's hidden and only revealed once the game is over.
-  const showReasoning = devMode || winner != null;
+  const showReasoning = devMode || tutorial || winner != null;
   const spyName = players.find((p) => p.isSpy)?.name;
   const guessCorrect = winner != null && guess != null && players.find((p) => p.id === guess)?.isSpy;
 
   return (
     <>
+    {tutorial && <TutorialCoach phase={phase} humanTurn={humanTurn} winner={winner} players={players} />}
     <div style={S.board} className="board">
       <section style={S.seats}>
         {orderedPlayers.map((p) => {
