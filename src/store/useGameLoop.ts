@@ -19,6 +19,7 @@ import {
 import { HUMAN_PROFILE, PERSONAS } from "@/game/personas";
 import { getWordPair } from "@/game/words";
 import type { AgentProfile, GameConfig, LogEntry, Phase, Player, SuspicionSnapshot, Winner } from "@/game/types";
+import { newGameId, track } from "@/lib/telemetry";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -204,6 +205,20 @@ export function useGameLoop() {
       { type: "system", text: `平民与卧底各自拿到了一个相近但不同的词。连他们自己都还不知道谁是那个例外。` },
     ]);
     setPhase("ready");
+
+    newGameId();
+    track("game_start", {
+      totalPlayers: ps.length,
+      aiPlayers: ps.filter((p) => p.kind === "ai").length,
+      hasHuman: config.humanPlayers === 1,
+      spyCount: spyIndices.length,
+      blank: blankIndex >= 0,
+      devMode: config.devMode,
+      tutorial: !!config.tutorial,
+      wordPairId: pairChosen.id,
+      theme: config.theme,
+      difficulty: pairChosen.difficulty ?? null,
+    });
   }, []);
 
   // ── Describe phase ──────────────────────────────────────────────────────
@@ -286,6 +301,15 @@ export function useGameLoop() {
         transcript.push(`【第${r}轮】${sp.name}：${clue}`);
         sync(working);
         addLog({ type: "clue", id, name: sp.name, emoji: sp.emoji, round: r, text: clue, reasoning });
+        track("clue", {
+          round: r,
+          name: sp.name,
+          kind: sp.kind,
+          role: sp.role,
+          isSpy: sp.isSpy,
+          position: speakIds.indexOf(id) + 1,
+          clueLen: clue.length,
+        });
         await sleep(200);
 
         if (devModeRef.current) {
@@ -344,6 +368,7 @@ export function useGameLoop() {
     setReflecting(false);
     const total = results.reduce((n, x) => n + x, 0);
     addLog({ type: "system", text: `复盘完成，共写入 ${total} 条经验到各 AI 的长期记忆(下一局会自动带上)。` });
+    track("reflect_done", { winner, reflectors: ai.length, learningsWritten: total });
   };
 
   // One round of voting. Each alive player votes for someone in candidateNames
@@ -407,6 +432,13 @@ export function useGameLoop() {
       };
       sync(working);
       addLog({ type: "vote", id: voter.id, name: voter.name, emoji: voter.emoji, target: voteName, reason, reasoning });
+      track("vote", {
+        round: roundRef.current,
+        voter: voter.name,
+        voterKind: voter.kind,
+        voterIsSpy: voter.isSpy,
+        target: voteName,
+      });
       await sleep(200);
     }
     setSpeakingId(null);
@@ -452,6 +484,7 @@ export function useGameLoop() {
     const c = norm(civWord);
     const correct = !!g && !!c && (g.includes(c) || c.includes(g));
     addLog({ type: "system", text: `${spy.name} 猜：「${guess || "(没猜)"}」——平民的词是「${civWord}」。` });
+    track("spy_guess", { round: roundRef.current, guesser: spy.name, kind: spy.kind, hasGuess: !!g, correct });
     return correct ? "spy" : "civ";
   };
 
@@ -470,6 +503,7 @@ export function useGameLoop() {
       await castVotes(working, aliveNames, publicTranscript(working));
       const first = tallyVotes(working);
       addLog({ type: "tally", text: `计票结果：${tallyText(first.tally)}。` });
+      track("tally", { round: r, stage: "first", tie: first.tie, top: first.topNames });
 
       let outName: string;
       if (!first.tie) {
@@ -549,6 +583,7 @@ export function useGameLoop() {
             ? `${out.name} 被票出，但他是白板(根本没有词)！卧底还在场……`
             : `${out.name} 被票出，但他是平民，词是「${out.word}」。卧底还在场……`,
       });
+      track("eliminate", { round: r, name: out.name, kind: out.kind, role: out.role, isSpy: out.isSpy });
 
       let w = checkWinner(working);
       // If civilians just eliminated the last spy, that spy gets a 反杀 guess.
@@ -561,6 +596,12 @@ export function useGameLoop() {
         addLog({
           type: "result",
           text: w === "civ" ? "🎉 平民阵营胜利！卧底已被揪出。" : "🩸 卧底阵营胜利！",
+        });
+        track("game_over", {
+          winner: w,
+          rounds: r,
+          survivors: aliveOf(working).length,
+          spyGuessUsed: out.isSpy && w === "spy",
         });
         await runReflections(working, w);
       } else {

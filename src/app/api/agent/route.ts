@@ -13,6 +13,18 @@ import {
   type SuspectPayload,
   type VotePayload,
 } from "@/game/prompts";
+import { logEvent } from "@/lib/serverLog";
+
+// Normalised token usage so every provider logs the same shape (fields optional —
+// some providers/models don't report counts).
+interface Usage {
+  inputTokens?: number;
+  outputTokens?: number;
+}
+interface RunOutput {
+  result: unknown;
+  usage?: Usage;
+}
 
 // Server-side only. Secrets (Anthropic key) and the local Ollama host live here,
 // never in the browser. Provider is switchable so the same game can run on a
@@ -150,7 +162,7 @@ async function runAnthropic(
   spec: { name: string; description: string; schema: JsonSchema },
   prompt: string,
   model: string,
-): Promise<unknown> {
+): Promise<RunOutput> {
   const client = new Anthropic();
   const message = await client.messages.create({
     model,
@@ -162,10 +174,13 @@ async function runAnthropic(
   });
   const toolUse = message.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
   if (!toolUse) throw new Error(`模型未返回工具调用 (stop_reason=${message.stop_reason})`);
-  return toolUse.input;
+  return {
+    result: toolUse.input,
+    usage: { inputTokens: message.usage?.input_tokens, outputTokens: message.usage?.output_tokens },
+  };
 }
 
-async function runOllama(spec: { schema: JsonSchema }, prompt: string, model: string): Promise<unknown> {
+async function runOllama(spec: { schema: JsonSchema }, prompt: string, model: string): Promise<RunOutput> {
   const client = new Ollama({ host: OLLAMA_HOST });
   const res = await client.chat({
     model,
@@ -177,14 +192,15 @@ async function runOllama(spec: { schema: JsonSchema }, prompt: string, model: st
       { role: "user", content: prompt },
     ],
   });
+  const usage: Usage = { inputTokens: res.prompt_eval_count, outputTokens: res.eval_count };
   const txt = res.message.content ?? "";
   try {
-    return JSON.parse(txt);
+    return { result: JSON.parse(txt), usage };
   } catch {
     const m = txt.match(/\{[\s\S]*\}/);
     if (m) {
       try {
-        return JSON.parse(m[0]);
+        return { result: JSON.parse(m[0]), usage };
       } catch {
         /* fall through */
       }
@@ -204,7 +220,7 @@ function jsonShapeHint(schema: JsonSchema): string {
 // models may not support response_format, so we don't send it — instead we
 // instruct the exact JSON shape and robustly extract the object from the reply.
 // (vote validity is still enforced downstream by re-asking the agent.)
-async function runVolcengine(spec: { schema: JsonSchema }, prompt: string, model: string): Promise<unknown> {
+async function runVolcengine(spec: { schema: JsonSchema }, prompt: string, model: string): Promise<RunOutput> {
   const res = await fetch(`${ARK_BASE}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${ARK_KEY}`, "Content-Type": "application/json" },
@@ -224,19 +240,21 @@ async function runVolcengine(spec: { schema: JsonSchema }, prompt: string, model
   const data = (await res.json()) as {
     error?: { message?: string };
     choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
   if (!res.ok) {
     throw new Error(`Ark HTTP ${res.status}: ${data?.error?.message || JSON.stringify(data).slice(0, 300)}`);
   }
+  const usage: Usage = { inputTokens: data?.usage?.prompt_tokens, outputTokens: data?.usage?.completion_tokens };
   const txt = data?.choices?.[0]?.message?.content ?? "";
   const cleaned = txt.replace(/```json/gi, "").replace(/```/g, "").trim();
   try {
-    return JSON.parse(cleaned);
+    return { result: JSON.parse(cleaned), usage };
   } catch {
     const m = cleaned.match(/\{[\s\S]*\}/);
     if (m) {
       try {
-        return JSON.parse(m[0]);
+        return { result: JSON.parse(m[0]), usage };
       } catch {
         /* fall through */
       }
@@ -268,8 +286,14 @@ export async function POST(req: NextRequest) {
             ? buildSpyGuessPrompt(body.payload)
             : buildReflectPrompt(body.payload);
 
+  // Identity bits for the backend log (who/what — pure observation).
+  const agentName = (body.payload as { name?: string })?.name;
+  const round = (body.payload as { round?: number })?.round;
+  const startedAt = Date.now();
+  let usedModel = "";
+
   try {
-    let result: unknown;
+    let out: RunOutput;
     if (PROVIDER === "anthropic") {
       if (!process.env.ANTHROPIC_API_KEY) {
         return NextResponse.json(
@@ -277,7 +301,8 @@ export async function POST(req: NextRequest) {
           { status: 500 },
         );
       }
-      result = await runAnthropic(spec, prompt, body.model || ANTHROPIC_MODEL);
+      usedModel = body.model || ANTHROPIC_MODEL;
+      out = await runAnthropic(spec, prompt, usedModel);
     } else if (PROVIDER === "volcengine") {
       if (!ARK_KEY) {
         return NextResponse.json({ error: "服务端 provider=volcengine 但未配置 ARK_API_KEY。" }, { status: 500 });
@@ -290,14 +315,42 @@ export async function POST(req: NextRequest) {
       }
       // Per-agent model overrides are Ollama tags (qwen2.5:*) — ignore them here
       // and use the single configured Ark model/endpoint.
-      result = await runVolcengine(spec, prompt, ARK_MODEL);
+      usedModel = ARK_MODEL;
+      out = await runVolcengine(spec, prompt, ARK_MODEL);
     } else {
-      result = await runOllama(spec, prompt, body.model || OLLAMA_MODEL);
+      usedModel = body.model || OLLAMA_MODEL;
+      out = await runOllama(spec, prompt, usedModel);
     }
-    return NextResponse.json({ result, provider: PROVIDER });
+
+    await logEvent({
+      type: "agent_call",
+      ok: true,
+      kind: body.kind,
+      agent: agentName,
+      round,
+      provider: PROVIDER,
+      model: usedModel,
+      ms: Date.now() - startedAt,
+      inputTokens: out.usage?.inputTokens,
+      outputTokens: out.usage?.outputTokens,
+    });
+    return NextResponse.json({ result: out.result, provider: PROVIDER });
   } catch (err) {
     const status = err instanceof Anthropic.APIError ? err.status ?? 500 : 500;
     const detail = err instanceof Error ? err.message : String(err);
+
+    await logEvent({
+      type: "agent_call",
+      ok: false,
+      kind: body.kind,
+      agent: agentName,
+      round,
+      provider: PROVIDER,
+      model: usedModel,
+      ms: Date.now() - startedAt,
+      error: detail.slice(0, 300),
+    });
+
     let hint = "";
     if (PROVIDER === "ollama" && /fetch failed|ECONNREFUSED|connect/i.test(detail)) {
       hint = `（无法连接本地 Ollama @ ${OLLAMA_HOST}，请确认 Ollama 已启动且已 pull 模型 ${OLLAMA_MODEL}）`;
