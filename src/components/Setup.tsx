@@ -32,15 +32,12 @@ const DIFFICULTY_OPTIONS = [
   { value: "3", label: "困难(很接近)" },
 ];
 
-export default function Setup({
-  onStart,
-  onTutorial,
-}: {
-  onStart: (c: GameConfig) => void;
-  onTutorial: () => void;
-}) {
+export default function Setup({ onStart }: { onStart: (c: GameConfig) => void }) {
   const [total, setTotal] = useState(5);
-  const [human, setHuman] = useState<0 | 1>(0);
+  // Three game modes. "masterclass" (大师课) = you play WITH coaching: forces
+  // humanPlayers=1 and sets tutorial=true (hints + AI reasoning shown).
+  const [mode, setMode] = useState<"spectate" | "play" | "masterclass">("spectate");
+  const human: 0 | 1 = mode === "spectate" ? 0 : 1;
   const [spyCount, setSpyCount] = useState(1);
   const [blankEnabled, setBlankEnabled] = useState(false);
   const [wordPairId, setWordPairId] = useState<string | null>(null);
@@ -84,34 +81,16 @@ export default function Setup({
       theme,
       difficulty,
       devMode,
+      tutorial: mode === "masterclass",
       aiSlots: advanced ? slots.slice(0, aiCount) : undefined,
     });
 
   return (
     <div style={S.setup}>
       <h2 style={S.setupTitle}>开一局</h2>
-      <p style={S.setupP}>配置玩家、卧底数与词，然后看 AI 在牌桌上互相试探。最多可加入 1 名真人(你)。</p>
-
-      <button
-        onClick={onTutorial}
-        style={{
-          width: "100%",
-          fontFamily: "var(--font-body)",
-          fontSize: 14,
-          color: "var(--amber)",
-          background: "rgba(232,161,58,.08)",
-          borderWidth: 1,
-          borderStyle: "solid",
-          borderColor: "var(--amber-dim)",
-          borderRadius: 10,
-          padding: "11px 14px",
-          cursor: "pointer",
-          marginBottom: 16,
-          textAlign: "left",
-        }}
-      >
-        📖 第一次玩？点这里进入<b>新手教学</b> —— 边玩边学规则与技巧 →
-      </button>
+      <p style={S.setupP}>
+        配置玩家、卧底数与词，然后看 AI 在牌桌上互相试探。想亲自下场，选「我也玩」；想边玩边被点拨、精进技术，选「🎓 大师课」。
+      </p>
 
       <div style={S.fieldRow}>
         <div style={S.field}>
@@ -145,13 +124,28 @@ export default function Setup({
         </div>
 
         <div style={S.field}>
-          <span style={S.fieldLabel}>你的角色</span>
+          <span style={S.fieldLabel}>游戏模式</span>
           <div style={S.toggle}>
-            <button style={{ ...S.toggleBtn, ...(human === 0 ? S.toggleBtnSel : {}) }} onClick={() => setHuman(0)}>
+            <button
+              style={{ ...S.toggleBtn, ...(mode === "spectate" ? S.toggleBtnSel : {}) }}
+              onClick={() => setMode("spectate")}
+              title="只看 AI 互相博弈，你可以押注谁是卧底"
+            >
               👀 纯观战
             </button>
-            <button style={{ ...S.toggleBtn, ...(human === 1 ? S.toggleBtnSel : {}) }} onClick={() => setHuman(1)}>
+            <button
+              style={{ ...S.toggleBtn, ...(mode === "play" ? S.toggleBtnSel : {}) }}
+              onClick={() => setMode("play")}
+              title="你入座同桌，和 AI 一起玩"
+            >
               🧑 我也玩
+            </button>
+            <button
+              style={{ ...S.toggleBtn, ...(mode === "masterclass" ? S.toggleBtnSel : {}) }}
+              onClick={() => setMode("masterclass")}
+              title="你上场，全程有教练点拨 + 显示每个 AI 的💭推理，帮你精进技术"
+            >
+              🎓 大师课
             </button>
           </div>
         </div>
@@ -259,7 +253,7 @@ export default function Setup({
       </div>
 
       <button onClick={start} style={S.startBtn}>
-        入座开局 →
+        {mode === "masterclass" ? "进入大师课 →" : "入座开局 →"}
       </button>
     </div>
   );

@@ -31,7 +31,7 @@ const CARDS: Array<{ icon: string; title: string; body: string }> = [
   {
     icon: "🔍",
     title: "这局有 AI 陪你练",
-    body: "下面这局有 3 个 AI 和你同桌。每个 AI 发言时会显示它的『内心 OS』(💭推理)，让你看到高手怎么想。轮到你时，上方会有提示教你该做什么。准备好就开始吧！",
+    body: "这局你和几位 AI 同桌。每个 AI 发言时会显示它的『内心 OS』(💭推理)，让你看到高手怎么想；轮到你时，上方教练会提示你该做什么。准备好就开始吧！",
   },
 ];
 
@@ -54,8 +54,25 @@ export function TutorialIntro({ onStart, onBack }: { onStart: () => void; onBack
   const last = i === CARDS.length - 1;
   return (
     <div style={overlay}>
-      <div style={{ fontFamily: "var(--font-mono)", letterSpacing: 2, fontSize: 12, color: "var(--amber)" }}>
-        新手教学 · {i + 1}/{CARDS.length}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontFamily: "var(--font-mono)", letterSpacing: 2, fontSize: 12, color: "var(--amber)" }}>
+          大师课 · 入门 · {i + 1}/{CARDS.length}
+        </div>
+        <button
+          onClick={onStart}
+          title="跳过入门讲解，直接开始本局"
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 12.5,
+            color: "var(--muted)",
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            padding: 4,
+          }}
+        >
+          跳过教学 →
+        </button>
       </div>
       <div style={{ fontSize: 46, margin: "14px 0 6px" }}>{card.icon}</div>
       <h2 style={{ fontFamily: "var(--font-mono)", fontSize: 24, margin: "0 0 10px" }}>{card.title}</h2>
@@ -108,7 +125,7 @@ export function TutorialIntro({ onStart, onBack }: { onStart: () => void; onBack
             fontWeight: 600,
           }}
         >
-          {last ? "▶ 开始练习局" : "下一条 →"}
+          {last ? "▶ 开始大师课" : "下一条 →"}
         </button>
       </div>
     </div>

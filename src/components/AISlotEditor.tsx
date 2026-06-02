@@ -29,7 +29,7 @@ const card: CSSProperties = {
   flexDirection: "column",
   gap: 8,
 };
-const lbl: CSSProperties = { fontSize: 11, color: "var(--muted)", fontFamily: "var(--font-mono)" };
+const lbl: CSSProperties = { fontSize: 12, color: "var(--muted)", fontFamily: "var(--font-mono)" };
 const inp: CSSProperties = {
   fontFamily: "var(--font-body)",
   fontSize: 13,

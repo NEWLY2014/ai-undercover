@@ -15,20 +15,9 @@ export default function Home() {
   const [guess, setGuess] = useState<number | null>(null);
   const [statsVersion, setStatsVersion] = useState(0);
   const [tutorialIntro, setTutorialIntro] = useState(false);
+  // The masterclass config awaiting the (skippable) rules intro before its game starts.
+  const [pendingConfig, setPendingConfig] = useState<GameConfig | null>(null);
   const recordedRef = useRef(false);
-
-  // Fixed, beginner-friendly setup for the guided practice game.
-  const TUTORIAL_CONFIG: GameConfig = {
-    totalPlayers: 4,
-    humanPlayers: 1,
-    spyCount: 1,
-    blankEnabled: false,
-    wordPairId: "cat-tiger",
-    theme: null,
-    difficulty: null,
-    devMode: false,
-    tutorial: true,
-  };
 
   // Record the finished game exactly once (when a winner is first decided).
   useEffect(() => {
@@ -65,20 +54,28 @@ export default function Home() {
           tutorialIntro ? (
             <TutorialIntro
               onStart={() => {
-                setGuess(null);
-                g.startGame(TUTORIAL_CONFIG);
+                if (pendingConfig) g.startGame(pendingConfig);
                 setTutorialIntro(false);
+                setPendingConfig(null);
               }}
-              onBack={() => setTutorialIntro(false)}
+              onBack={() => {
+                setTutorialIntro(false);
+                setPendingConfig(null);
+              }}
             />
           ) : (
             <>
               <Setup
                 onStart={(c) => {
                   setGuess(null);
-                  g.startGame(c);
+                  // 大师课 shows the (skippable) rules intro first, then starts.
+                  if (c.tutorial) {
+                    setPendingConfig(c);
+                    setTutorialIntro(true);
+                  } else {
+                    g.startGame(c);
+                  }
                 }}
-                onTutorial={() => setTutorialIntro(true)}
               />
               <StatsPanel version={statsVersion} />
             </>
