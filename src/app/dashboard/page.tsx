@@ -47,10 +47,18 @@ interface Games {
   byTheme: Array<{ name: string; count: number }>;
   spyElim: number; spyElimRound1: number; spyRound1Rate: number;
 }
+interface Cost {
+  measuredGames: number; ungroupedCalls: number;
+  avgUsd: number; p50Usd: number; p95Usd: number; avgCny: number; avgTokens: number;
+  fxRate: number; primaryModel: string | null;
+  byMode: Array<{ name: string; games: number; avgUsd: number }>;
+  devGames: number; devAvgUsd: number; nonDevGames: number; nonDevAvgUsd: number;
+  fallbackPerGameUsd: number;
+}
 type EventRec = { ts?: string; type?: string } & Record<string, unknown>;
 interface DashData {
   dates: string[]; selected: string; totalRecords: number;
-  agentCalls: AgentCalls; games: Games;
+  agentCalls: AgentCalls; games: Games; cost: Cost;
   events: EventRec[]; truncated: boolean; eventCap: number;
 }
 
@@ -111,6 +119,8 @@ export default function Dashboard() {
   const [authKey, setAuthKey] = useState<string>("");
   const [needKey, setNeedKey] = useState(false);
   const [keyInput, setKeyInput] = useState("");
+  const [gamesPerDay, setGamesPerDay] = useState(1000);
+  const [marginPct, setMarginPct] = useState(80);
 
   // Pick up an admin key from ?key= (persisted) or sessionStorage once on mount.
   useEffect(() => {
@@ -326,6 +336,86 @@ export default function Dashboard() {
                 </BarChart>
               </ChartBox>
             </div>
+
+            {/* ── Cost & pricing ── */}
+            <div style={sectionTitle}>💰 成本与定价</div>
+            {data.cost.measuredGames === 0 ? (
+              <div style={{ ...panel, marginBottom: 14 }}>
+                <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
+                  还没有带 gameId 的对局成本数据（本次起新对局才会记录 gameId）。
+                  {data.cost.fallbackPerGameUsd > 0
+                    ? ` 按全局估算，每局约 $${data.cost.fallbackPerGameUsd}（总 token ÷ 完成对局数，模型 ${data.cost.primaryModel ?? "?"}）。`
+                    : ""}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={cardGrid}>
+                  <Stat big={`$${data.cost.avgUsd}`} small={`均成本/局 · ≈¥${data.cost.avgCny}`} />
+                  <Stat big={`$${data.cost.p95Usd}`} small="p95 成本/局" />
+                  <Stat big={data.cost.avgTokens.toLocaleString()} small="均 token/局" />
+                  <Stat big={`$${data.cost.devAvgUsd}`} small={`开发者模式均成本 (${data.cost.devGames} 局)`} />
+                  <Stat big={data.cost.measuredGames} small={`已计成本对局 · ${data.cost.primaryModel ?? "?"}`} />
+                </div>
+                <div style={chartGrid}>
+                  <ChartBox title="按模式 · 均成本/局 ($)">
+                    <BarChart data={data.cost.byMode} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
+                      <CartesianGrid stroke={C.line} />
+                      <XAxis dataKey="name" tick={axis} stroke={C.line} />
+                      <YAxis tick={axis} stroke={C.line} />
+                      <Tooltip contentStyle={tooltipStyle} />
+                      <Bar dataKey="avgUsd" name="均成本$" fill={C.amber} />
+                    </BarChart>
+                  </ChartBox>
+                  <div style={panel}>
+                    <div style={chartTitle}>投放 / 定价测算</div>
+                    <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 10 }}>
+                      <label style={{ fontSize: 12.5, color: C.muted }}>
+                        每日对局数{" "}
+                        <input
+                          type="number"
+                          value={gamesPerDay}
+                          onChange={(e) => setGamesPerDay(Math.max(0, Number(e.target.value) || 0))}
+                          style={{ width: 90, fontSize: 13, color: C.ink, background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 6, padding: "4px 8px" }}
+                        />
+                      </label>
+                      <label style={{ fontSize: 12.5, color: C.muted }}>
+                        目标毛利率 %{" "}
+                        <input
+                          type="number"
+                          value={marginPct}
+                          onChange={(e) => setMarginPct(Math.min(99, Math.max(0, Number(e.target.value) || 0)))}
+                          style={{ width: 70, fontSize: 13, color: C.ink, background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 6, padding: "4px 8px" }}
+                        />
+                      </label>
+                    </div>
+                    {(() => {
+                      const avg = data.cost.avgUsd;
+                      const fx = data.cost.fxRate;
+                      const monthly = avg * gamesPerDay * 30;
+                      const freeCap = avg > 0 ? Math.floor(0.5 / (avg * 30)) : 0;
+                      const priceFloor = (avg * 60) / (1 - marginPct / 100);
+                      const row = (k: string, v: string) => (
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13, padding: "6px 0", borderTop: `1px solid ${C.line}` }}>
+                          <span style={{ color: C.muted }}>{k}</span>
+                          <span style={{ fontFamily: "var(--font-mono)", textAlign: "right" }}>{v}</span>
+                        </div>
+                      );
+                      return (
+                        <div>
+                          {row(`月成本 @ ${gamesPerDay} 局/日`, `$${monthly.toFixed(2)} ≈ ¥${(monthly * fx).toFixed(0)}`)}
+                          {row("建议免费上限 (≤$0.5/人·月)", `${freeCap} 局/日`)}
+                          {row(`订阅价下限 (毛利${marginPct}% @60局/月)`, `$${priceFloor.toFixed(2)} ≈ ¥${(priceFloor * fx).toFixed(1)}`)}
+                        </div>
+                      );
+                    })()}
+                    <div style={{ fontSize: 11.5, color: C.muted, marginTop: 10, lineHeight: 1.5 }}>
+                      按已发布 LLM 费率估算（USD；¥ 按汇率 {data.cost.fxRate} 换算）。可在 src/lib/pricing.ts 或环境变量调整。
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* ── Raw event browser ── */}
             <div style={sectionTitle}>🧾 原始事件浏览</div>
