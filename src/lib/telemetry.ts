@@ -1,6 +1,6 @@
-// Client-side data instrumentation (数据埋点). Each call to track() does two things:
+// Client-side data instrumentation. Each call to track() does two things:
 //   1. console.debug(...)  — visible in the browser devtools while playing
-//   2. POST /api/track     — so the event is logged on the BACKEND (在后台打日志)
+//   2. POST /api/track     — so the event is logged on the backend
 //
 // Events are keyed by a per-tab sessionId and a per-game gameId so a JSONL log can
 // be grouped back into individual games/sessions. Fire-and-forget: a telemetry

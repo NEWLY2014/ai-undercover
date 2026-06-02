@@ -1,6 +1,6 @@
 // Player stats + achievements for the current session, persisted in
 // sessionStorage. No accounts, no server — purely the tab session's record:
-// stats survive "再来一局" and reloads, and reset when the tab/browser closes.
+// stats survive consecutive games and reloads, and reset when the tab/browser closes.
 
 import type { Player, Winner } from "@/game/types";
 

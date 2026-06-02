@@ -1,5 +1,5 @@
 // Prompt builders shared by the server route. Phase B injects each agent's
-// thinking style, "初始素质" attributes, private working memory, and lessons
+// thinking style, attribute sheet, private working memory, and lessons
 // recalled from past games — all as CONTEXT the agent reasons over itself.
 import type { AgentAttributes } from "./types";
 import { thinkingStyleScaffold } from "./thinkingStyles";
@@ -9,10 +9,10 @@ export const GAME_RULES = `你正在玩“谁是卧底”游戏。规则：N 名
 // Fields every agent call may carry to shape the agent's identity & memory.
 export interface AgentContext {
   thinkingStyle?: string; // key into THINKING_STYLES
-  attributes?: AgentAttributes; // 初始素质 (prompt context only)
+  attributes?: AgentAttributes; // attribute sheet (prompt context only)
   learnings?: string[]; // recalled long-term lessons (agent-authored)
   memory?: string; // private working memory (agent-authored, this game)
-  isBlank?: boolean; // this agent is the 白板 (got no word)
+  isBlank?: boolean; // this agent is the blank (got no word)
 }
 
 function attrText(a?: AgentAttributes): string {
@@ -39,15 +39,18 @@ function personaBlock(name: string, trait: string, ctx: AgentContext): string {
 const MEMORY_INSTRUCTION =
   "最后，在 memoryUpdate 里更新你的私人笔记(你现在最怀疑谁、依据是什么、你的词可能是不是少数派)，简短几句，供你下一回合参考。";
 
-// 说话像真人，不像念谜面 —— 提升“活人感”。
+// Make the agent sound like a real person at the table, not a riddle reader.
 const HUMANLIKE =
   "说话要像真人在牌桌上聊天：口语、自然、简短，符合你的性格；可以顺着接别人的话、表个态度或调侃一句(如“我跟老K想的差不多”“这说法有点虚啊”)，但别暴露词。别每句都是工整的谜面式描述。";
 
-// 全局核心策略 —— 修复“第一轮泄底/卧底一轮游”，并把描述从“干巴定义”升级为“巧妙间接”。
+// Core global strategy: stop giving the word away in round one (which gets the spy
+// voted out immediately), and push clues from flat definitions toward clever,
+// indirect hints.
 const STRATEGY =
   "这个游戏拼的是脑洞与表达，乐趣全在于“猜”。高手的描述讲究【巧、绕、有梗】：用谐音、拆字、补全固定搭配、近义联想、用典/歌词/影视梗、双关、场景演绎、抓本质特征等手法【间接】指向自己的词——让“懂的人能品出来、卧底和白板却难以破译”。务必守三不要：①忌近描——别干巴巴下定义(如“一种水果/一种工具书/一种交通工具”)，那既无趣又最容易被跟描；②忌爆字——不出现词里的任何字及其明显谐音/偏旁；③忌跟描——别重复或换皮重复别人说过的，自己另起新角度。同时点到为止：太直白会让卧底一轮出局、一局就结束、毫无意思——宁可巧妙含蓄，也绝不报出能让人一眼锁定的细节。";
 
-// 十大描法 + 现挂 + 范例(供 describe 注入)。让 agent 有”招”可使，而不是干巴定义。
+// The ten describing techniques + callbacks + examples, injected into the describe
+// prompt so the agent has real moves to play instead of flat definitions.
 const TECHNIQUES =
   `十大描法(按需混用，越多越巧)：
 ① 偷言换字——谐音/变音/外语/缩略语替换词里某部分，再顺势解释(如”WOW→哇哦好厉害”)

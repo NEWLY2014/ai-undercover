@@ -23,8 +23,8 @@ import { newGameId, track } from "@/lib/telemetry";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-// Re-ask the SAME agent on transient failure. This is "重问同一个 agent"
-// (allowed by the iron law), NOT a fallback that decides for the agent.
+// Re-ask the SAME agent on transient failure — a retry of the same agent,
+// NOT a fallback that makes a choice for it.
 async function withRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
@@ -243,7 +243,7 @@ export function useGameLoop() {
         let clue: string;
         let reasoning: string | null = null;
         if (sp.kind === "human") {
-          // Block the human from repeating or saying "和上面一样"; re-prompt until valid.
+          // Block the human from repeating or saying "same as above"; re-prompt until valid.
           clue = "(……我先不说太多)";
           while (true) {
             const input = (await waitForHuman("describe", sp)).trim();
@@ -444,7 +444,7 @@ export function useGameLoop() {
     setSpeakingId(null);
   };
 
-  // 反杀: the just-eliminated last spy gets one guess at the civilians' word.
+  // Comeback guess: the just-eliminated last spy gets one guess at the civilians' word.
   // The AGENT produces the guess; code only checks it against the secret word
   // (a referee correctness check, like validating a vote — not deciding for it).
   const runSpyGuess = async (spy: Player, working: Player[]): Promise<"civ" | "spy"> => {
@@ -509,7 +509,7 @@ export function useGameLoop() {
       if (!first.tie) {
         outName = first.topNames[0];
       } else {
-        // 平票 PK: tied players each add one more clue, then a revote restricted
+        // Tie-break: tied players each add one more clue, then a revote restricted
         // to just the tied candidates. Still tied → nobody is eliminated.
         addLog({ type: "system", text: `出现平票（${first.topNames.join("、")}）——进入 PK：他们各补一句描述后重投。` });
         const transcript = publicTranscript(working).split("\n").filter(Boolean);
@@ -586,7 +586,7 @@ export function useGameLoop() {
       track("eliminate", { round: r, name: out.name, kind: out.kind, role: out.role, isSpy: out.isSpy });
 
       let w = checkWinner(working);
-      // If civilians just eliminated the last spy, that spy gets a 反杀 guess.
+      // If civilians just eliminated the last spy, that spy gets a comeback guess.
       if (w === "civ" && out.isSpy) {
         w = await runSpyGuess(out, working);
       }

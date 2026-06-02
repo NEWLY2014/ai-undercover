@@ -178,7 +178,7 @@ export default function Dashboard() {
 
         {data && !loading && data.totalRecords > 0 && (
           <>
-            {/* ── AI 调用性能 ── */}
+            {/* ── AI call performance ── */}
             <div style={sectionTitle}>🤖 AI 调用性能</div>
             <div style={cardGrid}>
               <Stat big={data.agentCalls.total} small="调用数" />
@@ -229,7 +229,7 @@ export default function Dashboard() {
               </ChartBox>
             </div>
 
-            {/* ── 对局分析 ── */}
+            {/* ── Game analytics ── */}
             <div style={sectionTitle}>🎯 对局分析</div>
             <div style={cardGrid}>
               <Stat big={data.games.total} small="完成对局数" />
@@ -278,7 +278,7 @@ export default function Dashboard() {
               </ChartBox>
             </div>
 
-            {/* ── 原始事件浏览 ── */}
+            {/* ── Raw event browser ── */}
             <div style={sectionTitle}>🧾 原始事件浏览</div>
             <div style={{ ...panel, padding: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderBottom: `1px solid ${C.line}`, flexWrap: "wrap" }}>

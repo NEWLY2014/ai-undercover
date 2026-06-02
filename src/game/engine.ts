@@ -4,7 +4,7 @@ import type { AgentProfile, GameConfig, GameState, Player, Role, WordPair, Winne
 // Pure game-rules engine. This is the deterministic REFEREE — it sets up the
 // table, counts the votes that were actually cast, eliminates the top vote,
 // and judges win/loss. It NEVER decides what an agent says or who an agent
-// votes for. (See CLAUDE.md "禁止状态机" iron law.)
+// votes for — it only enforces the rules.
 // ──────────────────────────────────────────────────────────────────────────
 
 export function shuffle<T>(arr: T[]): T[] {
@@ -35,7 +35,7 @@ export function pickSpyIndices(totalPlayers: number, spyCount: number): number[]
   return idxs.slice(0, Math.max(1, Math.min(spyCount, totalPlayers - 1))).sort((a, b) => a - b);
 }
 
-// Pick one non-spy seat to be the blank (白板). Returns -1 if not applicable.
+// Pick one non-spy seat to be the blank. Returns -1 if not applicable.
 export function pickBlankIndex(totalPlayers: number, spyIndices: number[]): number {
   const spies = new Set(spyIndices);
   const candidates = Array.from({ length: totalPlayers }, (_, i) => i).filter((i) => !spies.has(i));

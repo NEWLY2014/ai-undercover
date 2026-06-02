@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logEvent } from "@/lib/serverLog";
 
-// Sink for client-side 埋点 events. The browser POSTs (often via sendBeacon) and
+// Sink for client-side telemetry events. The browser POSTs (often via sendBeacon) and
 // we write each event to the backend log. We only OBSERVE/record what the client
 // reports — nothing here feeds back into game logic.
 export const runtime = "nodejs";

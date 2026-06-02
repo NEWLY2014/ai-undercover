@@ -39,7 +39,7 @@ const PROVIDER: Provider = (process.env.UNDERCOVER_PROVIDER as Provider) || "oll
 const OLLAMA_HOST = process.env.UNDERCOVER_OLLAMA_HOST || "http://127.0.0.1:11434";
 const OLLAMA_MODEL = process.env.UNDERCOVER_OLLAMA_MODEL || "qwen2.5:3b";
 const ANTHROPIC_MODEL = process.env.UNDERCOVER_DEFAULT_MODEL || "claude-sonnet-4-6";
-// Volcengine Ark (火山方舟) — OpenAI-compatible. ARK_MODEL is the inference
+// Volcengine Ark — OpenAI-compatible. ARK_MODEL is the inference
 // endpoint id (ep-...) or an activated model name from the Ark console.
 const ARK_KEY = process.env.ARK_API_KEY || "";
 const ARK_BASE = process.env.ARK_BASE_URL || "https://ark.cn-beijing.volces.com/api/v3";
