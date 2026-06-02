@@ -176,5 +176,38 @@
     "hintVotingBody": "Watch who votes for whom, and why.",
     "hintRevealedTitle": "Someone's out",
     "hintRevealedBody": "The eliminated player's identity is revealed above. If it's not decided yet, click 'Next round' to continue."
+  },
+  "Stats": {
+    "title": "📊 Your record",
+    "empty": "No record yet. After a game (a spectator bet or a seat at the table), your win rate, streaks, and achievements show up here.",
+    "reset": "Clear",
+    "games": "Games",
+    "bestStreak": "Best streak (current {current})",
+    "betRate": "Undercover-bet rate ({correct}/{total})",
+    "humanRate": "Win rate at the table ({wins}/{games})",
+    "civSpy": "Civ wins / Spy wins",
+    "spyWins": "Wins as the undercover",
+    "achievements": "Achievements {got}/{total}",
+    "ach_first_win_label": "First Win",
+    "ach_first_win_desc": "Win for the first time (you win, or correctly bet the undercover)",
+    "ach_veteran_label": "Veteran",
+    "ach_veteran_desc": "Play 10 games in total",
+    "ach_streak3_label": "Triple Streak",
+    "ach_streak3_desc": "Win 3 games in a row",
+    "ach_detective_label": "Detective",
+    "ach_detective_desc": "Correctly bet the undercover 5 times",
+    "ach_spy_master_label": "Spymaster",
+    "ach_spy_master_desc": "Win 3 times as the undercover",
+    "ach_both_sides_label": "Both Sides",
+    "ach_both_sides_desc": "Witness a win for both the civilians and the undercover"
+  },
+  "Memory": {
+    "title": "🧠 AI memory (independent)",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "empty": "No memories yet. After a game, each AI builds up lessons and recalls them next game.",
+    "recalled": "Recalled lessons ({n} at this game's start)",
+    "noExperience": "(First appearance — no experience yet)",
+    "workingNote": "This game's private notes (live)"
   }
 }

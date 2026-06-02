@@ -176,5 +176,38 @@
     "hintVotingBody": "看每个人投给谁、理由是什么。",
     "hintRevealedTitle": "有人出局",
     "hintRevealedBody": "上方亮明了出局者身份。还没分胜负的话,点『进入下一轮』继续。"
+  },
+  "Stats": {
+    "title": "📊 你的战绩",
+    "empty": "还没有记录。玩一局(观战押注或人机同桌)后，这里会出现你的胜率、连胜与成就。",
+    "reset": "清空",
+    "games": "对局数",
+    "bestStreak": "最佳连胜(当前 {current})",
+    "betRate": "押中卧底率({correct}/{total})",
+    "humanRate": "同桌胜率({wins}/{games})",
+    "civSpy": "平民胜 / 卧底胜",
+    "spyWins": "你当卧底取胜",
+    "achievements": "成就 {got}/{total}",
+    "ach_first_win_label": "首战告捷",
+    "ach_first_win_desc": "第一次取得胜利(你赢或押中卧底)",
+    "ach_veteran_label": "老牌玩家",
+    "ach_veteran_desc": "累计玩满 10 局",
+    "ach_streak3_label": "三连胜",
+    "ach_streak3_desc": "连续 3 局成功",
+    "ach_detective_label": "神探",
+    "ach_detective_desc": "累计押中卧底 5 次",
+    "ach_spy_master_label": "卧底之王",
+    "ach_spy_master_desc": "作为卧底取胜 3 次",
+    "ach_both_sides_label": "两面通吃",
+    "ach_both_sides_desc": "平民阵营与卧底阵营各见证一次胜利"
+  },
+  "Memory": {
+    "title": "🧠 AI 记忆(独立空间)",
+    "collapse": "收起",
+    "expand": "展开",
+    "empty": "暂无记忆。玩过一局后,每个 AI 会积累经验并在下一局召回。",
+    "recalled": "过往经验(本局开局召回 {n} 条)",
+    "noExperience": "（首次登场，暂无经验）",
+    "workingNote": "本局私人笔记(实时更新)"
   }
 }
