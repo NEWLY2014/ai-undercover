@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import type { CSSProperties } from "react";
 import type { Player } from "@/game/types";
@@ -31,6 +32,7 @@ const item: CSSProperties = { fontSize: 12.5, color: "var(--ink)", marginBottom:
 // games + the running working-memory note it updates each turn. Makes the
 // "independent memory + learns across games" capability visible.
 export default function MemoryPanel({ players }: { players: Player[] }) {
+  const t = useTranslations("Memory");
   const ai = players.filter((p) => p.kind === "ai");
   const [open, setOpen] = useState(true);
   if (ai.length === 0) return null;
@@ -39,15 +41,15 @@ export default function MemoryPanel({ players }: { players: Player[] }) {
   return (
     <div style={wrap}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={title}>🧠 AI 记忆(独立空间)</span>
+        <span style={title}>{t("title")}</span>
         <button
           onClick={() => setOpen((v) => !v)}
           style={{ fontSize: 12, background: "var(--panel2)", color: "var(--ink)", borderWidth: 1, borderStyle: "solid", borderColor: "var(--line)", borderRadius: 7, padding: "3px 9px", cursor: "pointer" }}
         >
-          {open ? "收起" : "展开"}
+          {open ? t("collapse") : t("expand")}
         </button>
       </div>
-      {!anyMemory && <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>暂无记忆。玩过一局后,每个 AI 会积累经验并在下一局召回。</p>}
+      {!anyMemory && <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>{t("empty")}</p>}
       {open && anyMemory && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
           {ai.map((p) => (
@@ -57,9 +59,9 @@ export default function MemoryPanel({ players }: { players: Player[] }) {
                 <b style={{ fontSize: 13 }}>{p.name}</b>
                 <span style={tag}>{thinkingStyleLabel(p.thinkingStyle)}</span>
               </div>
-              <div style={sub}>过往经验(本局开局召回 {p.recalledLearnings.length} 条)</div>
+              <div style={sub}>{t("recalled", { n: p.recalledLearnings.length })}</div>
               {p.recalledLearnings.length === 0 ? (
-                <div style={{ ...item, color: "var(--muted)" }}>（首次登场，暂无经验）</div>
+                <div style={{ ...item, color: "var(--muted)" }}>{t("noExperience")}</div>
               ) : (
                 p.recalledLearnings.map((l, i) => (
                   <div key={i} style={item}>
@@ -69,7 +71,7 @@ export default function MemoryPanel({ players }: { players: Player[] }) {
               )}
               {p.workingMemory && p.workingMemory.trim() && (
                 <>
-                  <div style={sub}>本局私人笔记(实时更新)</div>
+                  <div style={sub}>{t("workingNote")}</div>
                   <div style={{ ...item, fontStyle: "italic", color: "var(--muted)" }}>{p.workingMemory}</div>
                 </>
               )}

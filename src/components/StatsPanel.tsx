@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { ACHIEVEMENTS, loadStats, resetStats, type Stats } from "@/lib/stats";
@@ -33,6 +34,7 @@ function pct(n: number, d: number): string {
 }
 
 export default function StatsPanel({ version = 0 }: { version?: number }) {
+  const t = useTranslations("Stats");
   const [stats, setStats] = useState<Stats | null>(null);
   useEffect(() => {
     setStats(loadStats());
@@ -42,8 +44,8 @@ export default function StatsPanel({ version = 0 }: { version?: number }) {
   if (stats.games === 0) {
     return (
       <div style={wrap}>
-        <div style={title}>📊 你的战绩</div>
-        <p style={{ ...small, margin: "8px 0 0" }}>还没有记录。玩一局(观战押注或人机同桌)后，这里会出现你的胜率、连胜与成就。</p>
+        <div style={title}>{t("title")}</div>
+        <p style={{ ...small, margin: "8px 0 0" }}>{t("empty")}</p>
       </div>
     );
   }
@@ -53,7 +55,7 @@ export default function StatsPanel({ version = 0 }: { version?: number }) {
   return (
     <div style={wrap}>
       <div style={head}>
-        <span style={title}>📊 你的战绩</span>
+        <span style={title}>{t("title")}</span>
         <button
           onClick={() => {
             resetStats();
@@ -61,45 +63,45 @@ export default function StatsPanel({ version = 0 }: { version?: number }) {
           }}
           style={{ fontSize: 11, background: "var(--panel2)", color: "var(--muted)", borderWidth: 1, borderStyle: "solid", borderColor: "var(--line)", borderRadius: 7, padding: "4px 9px", cursor: "pointer" }}
         >
-          清空
+          {t("reset")}
         </button>
       </div>
 
       <div style={grid}>
         <div style={cell}>
           <span style={big}>{stats.games}</span>
-          <span style={small}>对局数</span>
+          <span style={small}>{t("games")}</span>
         </div>
         <div style={cell}>
           <span style={big}>{stats.bestStreak}</span>
-          <span style={small}>最佳连胜(当前 {stats.currentStreak})</span>
+          <span style={small}>{t("bestStreak", { current: stats.currentStreak })}</span>
         </div>
         <div style={cell}>
           <span style={big}>{pct(stats.betsCorrect, stats.bets)}</span>
-          <span style={small}>押中卧底率({stats.betsCorrect}/{stats.bets})</span>
+          <span style={small}>{t("betRate", { correct: stats.betsCorrect, total: stats.bets })}</span>
         </div>
         <div style={cell}>
           <span style={big}>{pct(stats.humanWins, stats.humanGames)}</span>
-          <span style={small}>同桌胜率({stats.humanWins}/{stats.humanGames})</span>
+          <span style={small}>{t("humanRate", { wins: stats.humanWins, games: stats.humanGames })}</span>
         </div>
         <div style={cell}>
           <span style={big}>{stats.civWins}/{stats.spyWins}</span>
-          <span style={small}>平民胜 / 卧底胜</span>
+          <span style={small}>{t("civSpy")}</span>
         </div>
         <div style={cell}>
           <span style={big}>{stats.humanSpyWins}</span>
-          <span style={small}>你当卧底取胜</span>
+          <span style={small}>{t("spyWins")}</span>
         </div>
       </div>
 
-      <div style={{ ...small, marginBottom: 6 }}>成就 {unlocked.size}/{ACHIEVEMENTS.length}</div>
+      <div style={{ ...small, marginBottom: 6 }}>{t("achievements", { got: unlocked.size, total: ACHIEVEMENTS.length })}</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
         {ACHIEVEMENTS.map((a) => {
           const got = unlocked.has(a.id);
           return (
             <span
               key={a.id}
-              title={a.desc}
+              title={t(`ach_${a.id}_desc`)}
               style={{
                 fontSize: 12,
                 padding: "5px 10px",
@@ -111,7 +113,7 @@ export default function StatsPanel({ version = 0 }: { version?: number }) {
                 background: got ? "rgba(232,161,58,.10)" : "transparent",
               }}
             >
-              {got ? "🏆" : "🔒"} {a.label}
+              {got ? "🏆" : "🔒"} {t(`ach_${a.id}_label`)}
             </span>
           );
         })}
