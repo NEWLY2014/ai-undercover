@@ -32,11 +32,47 @@ const DIFFICULTY_OPTIONS = [
   { value: "3", label: "困难(很接近)" },
 ];
 
+// Remember the last-used setup within this tab session: it survives "再来一局"
+// and reloads (sessionStorage), and clears when the tab/browser is closed.
+type Mode = "spectate" | "play" | "masterclass";
+interface SetupPrefs {
+  total: number;
+  mode: Mode;
+  spyCount: number;
+  blankEnabled: boolean;
+  wordPairId: string | null;
+  theme: string | null;
+  difficulty: number | null;
+  devMode: boolean;
+  advanced: boolean;
+  slots: AgentProfile[];
+}
+const PREFS_KEY = "undercover:setup";
+
+function loadSetupPrefs(): Partial<SetupPrefs> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(PREFS_KEY);
+    return raw ? (JSON.parse(raw) as Partial<SetupPrefs>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSetupPrefs(p: SetupPrefs): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(PREFS_KEY, JSON.stringify(p));
+  } catch {
+    /* non-fatal */
+  }
+}
+
 export default function Setup({ onStart }: { onStart: (c: GameConfig) => void }) {
   const [total, setTotal] = useState(5);
   // Three game modes. "masterclass" (大师课) = you play WITH coaching: forces
   // humanPlayers=1 and sets tutorial=true (hints + AI reasoning shown).
-  const [mode, setMode] = useState<"spectate" | "play" | "masterclass">("spectate");
+  const [mode, setMode] = useState<Mode>("spectate");
   const human: 0 | 1 = mode === "spectate" ? 0 : 1;
   const [spyCount, setSpyCount] = useState(1);
   const [blankEnabled, setBlankEnabled] = useState(false);
@@ -71,7 +107,26 @@ export default function Setup({ onStart }: { onStart: (c: GameConfig) => void })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [theme, difficulty]);
 
-  const start = () =>
+  // Restore the last-used setup once after mount (defaults first → effect updates,
+  // matching StatsPanel's pattern, so server/client first paint agree).
+  useEffect(() => {
+    const p = loadSetupPrefs();
+    if (!p) return;
+    if (typeof p.total === "number") setTotal(clampTotal(p.total));
+    if (p.mode) setMode(p.mode);
+    if (typeof p.spyCount === "number") setSpyCount(p.spyCount);
+    if (typeof p.blankEnabled === "boolean") setBlankEnabled(p.blankEnabled);
+    if (p.wordPairId !== undefined) setWordPairId(p.wordPairId);
+    if (p.theme !== undefined) setTheme(p.theme);
+    if (p.difficulty !== undefined) setDifficulty(p.difficulty);
+    if (typeof p.devMode === "boolean") setDevMode(p.devMode);
+    if (typeof p.advanced === "boolean") setAdvanced(p.advanced);
+    if (Array.isArray(p.slots) && p.slots.length) setSlots(p.slots);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const start = () => {
+    saveSetupPrefs({ total, mode, spyCount, blankEnabled, wordPairId, theme, difficulty, devMode, advanced, slots });
     onStart({
       totalPlayers: total,
       humanPlayers: human,
@@ -84,6 +139,7 @@ export default function Setup({ onStart }: { onStart: (c: GameConfig) => void })
       tutorial: mode === "masterclass",
       aiSlots: advanced ? slots.slice(0, aiCount) : undefined,
     });
+  };
 
   return (
     <div style={S.setup}>

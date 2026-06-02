@@ -109,6 +109,8 @@ export default function Home() {
 
         <footer style={S.footer}>
           每个 AI 的发言与投票都由 AI / 本地模型实时生成 · 同样的词，每局走向都不同
+          <span style={{ margin: "0 8px", opacity: 0.5 }}>·</span>
+          <a href="/dashboard" style={{ color: "var(--amber)", textDecoration: "none" }}>📊 数据看板</a>
         </footer>
       </div>
     </div>

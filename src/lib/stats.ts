@@ -1,5 +1,6 @@
-// Lifetime player stats + achievements, persisted in localStorage. No accounts,
-// no server — purely the local browser's record. Pure data + a record function.
+// Player stats + achievements for the current session, persisted in
+// sessionStorage. No accounts, no server — purely the tab session's record:
+// stats survive "再来一局" and reloads, and reset when the tab/browser closes.
 
 import type { Player, Winner } from "@/game/types";
 
@@ -63,7 +64,7 @@ export const ACHIEVEMENTS: Achievement[] = [
 export function loadStats(): Stats {
   if (typeof window === "undefined") return { ...EMPTY_STATS };
   try {
-    const raw = window.localStorage.getItem(KEY);
+    const raw = window.sessionStorage.getItem(KEY);
     if (!raw) return { ...EMPTY_STATS };
     return { ...EMPTY_STATS, ...(JSON.parse(raw) as Partial<Stats>) };
   } catch {
@@ -74,7 +75,7 @@ export function loadStats(): Stats {
 function save(s: Stats) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(KEY, JSON.stringify(s));
+    window.sessionStorage.setItem(KEY, JSON.stringify(s));
   } catch {
     /* non-fatal */
   }
@@ -133,5 +134,5 @@ export function recordGame(result: GameResult): { stats: Stats; newlyUnlocked: s
 
 export function resetStats() {
   if (typeof window === "undefined") return;
-  window.localStorage.removeItem(KEY);
+  window.sessionStorage.removeItem(KEY);
 }
