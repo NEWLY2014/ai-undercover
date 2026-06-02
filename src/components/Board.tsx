@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { S } from "@/app/styles";
 import MemoryPanel from "@/components/MemoryPanel";
@@ -19,6 +20,7 @@ function PlayerCard({
   revealAll: boolean;
   orderIndex?: number;
 }) {
+  const t = useTranslations("Board");
   const dead = !p.alive;
   const lastClue = p.clues[p.clues.length - 1];
   return (
@@ -37,27 +39,28 @@ function PlayerCard({
         <div>
           <div style={S.cardName}>
             {p.name}
-            {p.kind === "human" && <span style={S.humanBadge}>你</span>}
-            {revealAll && p.isSpy && <span style={S.spyBadge}>卧底</span>}
-            {revealAll && p.role === "blank" && <span style={{ ...S.spyBadge, background: "var(--green)", color: "#06210a" }}>白板</span>}
-            {dead && <span style={S.deadBadge}>出局</span>}
+            {p.kind === "human" && <span style={S.humanBadge}>{t("badgeYou")}</span>}
+            {revealAll && p.isSpy && <span style={S.spyBadge}>{t("badgeSpy")}</span>}
+            {revealAll && p.role === "blank" && <span style={{ ...S.spyBadge, background: "var(--green)", color: "#06210a" }}>{t("badgeBlank")}</span>}
+            {dead && <span style={S.deadBadge}>{t("badgeDead")}</span>}
           </div>
           <div style={S.cardTrait}>{p.trait}</div>
         </div>
       </div>
       {(revealAll || dead) && (
         <div style={{ ...S.cardWord, color: p.isSpy ? "var(--red)" : p.role === "blank" ? "var(--green)" : "var(--amber)" }}>
-          {p.role === "blank" ? "白板（无词）" : `词：${p.word}`}
+          {p.role === "blank" ? t("blankNoWord") : t("wordLabel", { word: p.word })}
         </div>
       )}
       {lastClue && <div style={S.cardClue}>“{lastClue}”</div>}
-      {speaking && <div style={S.speakTag}>● 发言中</div>}
-      {p.vote && !dead && <div style={S.voteTag}>投给 → {p.vote}</div>}
+      {speaking && <div style={S.speakTag}>{t("speaking")}</div>}
+      {p.vote && !dead && <div style={S.voteTag}>{t("votedTo", { name: p.vote })}</div>}
     </div>
   );
 }
 
 function LogItem({ e, showReasoning }: { e: LogEntry; showReasoning: boolean }) {
+  const t = useTranslations("Board");
   if (e.type === "system") return <div style={S.logSystem}>{e.text}</div>;
   if (e.type === "phase") return <div style={S.logPhase}>{e.text}</div>;
   if (e.type === "clue")
@@ -76,7 +79,7 @@ function LogItem({ e, showReasoning }: { e: LogEntry; showReasoning: boolean }) 
       <div style={S.logVote}>
         <span style={S.logAvatar}>{e.emoji}</span>
         <span>
-          <b style={{ color: "var(--ink)" }}>{e.name}</b> 投给 <b style={{ color: "var(--amber)" }}>{e.target}</b>：
+          <b style={{ color: "var(--ink)" }}>{e.name}</b> {t("votedFor")} <b style={{ color: "var(--amber)" }}>{e.target}</b>：
           <span style={{ color: "var(--muted)" }}>{e.reason}</span>
           {showReasoning && e.reasoning && <div style={S.reasoning}>💭 {e.reasoning}</div>}
         </span>
@@ -95,18 +98,6 @@ function LogItem({ e, showReasoning }: { e: LogEntry; showReasoning: boolean }) 
   return null;
 }
 
-function phaseLabel(phase: Phase, round: number): string {
-  const map: Record<string, string> = {
-    ready: `第 ${round} 轮 · 待开始`,
-    describing: `第 ${round} 轮 · 描述中`,
-    described: `第 ${round} 轮 · 待投票`,
-    voting: `第 ${round} 轮 · 投票中`,
-    revealed: `第 ${round} 轮 · 已揭晓`,
-    gameover: "本局结束",
-  };
-  return map[phase] || "";
-}
-
 function Controls({
   phase,
   busy,
@@ -122,40 +113,41 @@ function Controls({
   onNext: () => void;
   onRestart: () => void;
 }) {
+  const t = useTranslations("Board");
   if (phase === "ready")
     return (
       <button style={S.actBtn} disabled={busy} onClick={onDescribe}>
-        ▶ 开始本轮描述
+        {t("ctlStart")}
       </button>
     );
   if (phase === "describing")
     return (
       <button style={S.actBtnDim} disabled>
-        描述进行中…
+        {t("ctlDescribing")}
       </button>
     );
   if (phase === "described")
     return (
       <button style={S.actBtn} disabled={busy} onClick={onVote}>
-        🗳 进入投票
+        {t("ctlVote")}
       </button>
     );
   if (phase === "voting")
     return (
       <button style={S.actBtnDim} disabled>
-        投票进行中…
+        {t("ctlVoting")}
       </button>
     );
   if (phase === "revealed")
     return (
       <button style={S.actBtn} disabled={busy} onClick={onNext}>
-        ↻ 进入下一轮
+        {t("ctlNext")}
       </button>
     );
   if (phase === "gameover")
     return (
       <button style={S.actBtn} onClick={onRestart}>
-        🔄 再来一局
+        {t("ctlRestart")}
       </button>
     );
   return null;
@@ -170,6 +162,7 @@ function HumanPanel({
   players: Player[];
   onSubmit: (v: string) => void;
 }) {
+  const t = useTranslations("Board");
   const [text, setText] = useState("");
   if (turn.kind === "describe" || turn.kind === "spyGuess") {
     const isGuess = turn.kind === "spyGuess";
@@ -177,16 +170,16 @@ function HumanPanel({
       <div style={S.humanPanel}>
         <div style={S.humanLabel}>
           {isGuess
-            ? "🔪 你是最后的卧底！猜中平民的词就能反杀翻盘——输入你猜的词:"
+            ? t("humanSpyGuess")
             : turn.player.role === "blank"
-              ? "🃏 你是白板(没有词)！根据别人的描述猜大家在说啥，含糊地跟一句，别露馅"
-              : `轮到你了 · 你的词是【${turn.player.word}】，用一句话描述它(别说出这个词)`}
+              ? t("humanBlank")
+              : t("humanDescribe", { word: turn.player.word })}
         </div>
         <input
           style={S.input}
           value={text}
           autoFocus
-          placeholder={isGuess ? "你猜平民的词是…" : "一句话描述…"}
+          placeholder={isGuess ? t("placeholderGuess") : t("placeholderDescribe")}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && text.trim()) {
@@ -203,7 +196,7 @@ function HumanPanel({
             setText("");
           }}
         >
-          {isGuess ? "猜！" : "发送描述"}
+          {isGuess ? t("btnGuess") : t("btnSendClue")}
         </button>
       </div>
     );
@@ -214,7 +207,7 @@ function HumanPanel({
   );
   return (
     <div style={S.humanPanel}>
-      <div style={S.humanLabel}>{turn.candidates ? "PK 重投 · 在平票者中选一个" : "轮到你投票 · 你觉得谁是卧底？"}</div>
+      <div style={S.humanLabel}>{turn.candidates ? t("humanVotePk") : t("humanVote")}</div>
       <div style={S.guessChips}>
         {others.map((p) => (
           <button key={p.id} style={S.chip} onClick={() => onSubmit(p.name)}>
@@ -251,8 +244,18 @@ export interface BoardProps {
   onSubmitHuman: (v: string) => void;
 }
 
+const PHASE_KEY: Record<string, string> = {
+  ready: "phaseReady",
+  describing: "phaseDescribing",
+  described: "phaseDescribed",
+  voting: "phaseVoting",
+  revealed: "phaseRevealed",
+  gameover: "phaseGameover",
+};
+
 export default function Board(props: BoardProps) {
   const { players, log, busy, speakingId, phase, round, winner, error, pair, humanTurn, guess, devMode, tutorial, suspicion, suspecting, order } = props;
+  const t = useTranslations("Board");
   // Order seats by this round's speaking order; eliminated players sink to the end.
   const orderPos = new Map(order.map((id, i) => [id, i]));
   const orderedPlayers = [...players].sort((a, b) => {
@@ -269,8 +272,9 @@ export default function Board(props: BoardProps) {
   // Agent private reasoning (💭) is a developer-mode insight during play; in
   // normal play it's hidden and only revealed once the game is over.
   const showReasoning = devMode || tutorial || winner != null;
-  const spyName = players.find((p) => p.isSpy)?.name;
+  const spyName = players.find((p) => p.isSpy)?.name ?? "";
   const guessCorrect = winner != null && guess != null && players.find((p) => p.id === guess)?.isSpy;
+  const phaseTag = PHASE_KEY[phase] ? t(PHASE_KEY[phase], { round }) : "";
 
   return (
     <>
@@ -293,8 +297,8 @@ export default function Board(props: BoardProps) {
 
       <section style={S.feedWrap}>
         <div style={S.feedHead}>
-          <span style={S.feedTitle}>现场直播</span>
-          <span style={S.phaseTag}>{phaseLabel(phase, round)}</span>
+          <span style={S.feedTitle}>{t("feedTitle")}</span>
+          <span style={S.phaseTag}>{phaseTag}</span>
         </div>
         <div style={S.feed} ref={feedRef}>
           {log.map((e, i) => (
@@ -303,7 +307,7 @@ export default function Board(props: BoardProps) {
           {busy && !humanTurn && (
             <div style={S.thinking}>
               <span className="dot" />
-              AI 思考中…
+              {t("thinking")}
             </div>
           )}
         </div>
@@ -324,12 +328,10 @@ export default function Board(props: BoardProps) {
       </section>
 
       <section style={S.guessWrap}>
-        <div style={S.guessHead}>{hasHuman ? "本局信息" : "你的推理"}</div>
+        <div style={S.guessHead}>{hasHuman ? t("guessHeadHuman") : t("guessHeadSpectator")}</div>
         {!hasHuman && (
           <>
-            <p style={S.guessHint}>
-              {winner ? "本局已结束，看看你押对了没：" : "你觉得谁是卧底？点一个名字下注。"}
-            </p>
+            <p style={S.guessHint}>{winner ? t("guessHintEnded") : t("guessHintActive")}</p>
             <div style={S.guessChips}>
               {players.map((p) => {
                 const sel = guess === p.id;
@@ -346,33 +348,32 @@ export default function Board(props: BoardProps) {
                     }}
                   >
                     {p.emoji} {p.name}
-                    {revealSpy ? " · 卧底" : ""}
+                    {revealSpy ? t("spyTag") : ""}
                   </button>
                 );
               })}
             </div>
             {winner && guess != null && (
               <div style={{ ...S.verdict, color: guessCorrect ? "var(--green)" : "var(--red)" }}>
-                {guessCorrect ? "🎯 你押对了！卧底就是 " + spyName : "❌ 没猜中，卧底其实是 " + spyName}
+                {guessCorrect ? t("verdictRight", { name: spyName }) : t("verdictWrong", { name: spyName })}
               </div>
             )}
           </>
         )}
         {hasHuman && (
           <p style={S.guessHint}>
-            {winner
-              ? winner === "civ"
-                ? "🎉 平民胜利！"
-                : "🩸 卧底胜利！"
-              : "对局进行中。轮到你时下方会出现操作面板。"}
+            {winner ? (winner === "civ" ? t("resultCiv") : t("resultSpy")) : t("inProgress")}
           </p>
         )}
         {pair && (!hasHuman || winner) && (
           <div style={S.wordsBox}>
-            <div style={S.wordsTitle}>本局词对{winner ? "" : "(剧透，慎看)"}</div>
+            <div style={S.wordsTitle}>
+              {t("wordsTitle")}
+              {winner ? "" : t("wordsSpoiler")}
+            </div>
             <div style={S.wordsRow}>
-              <span style={S.wordCiv}>平民：{pair.civ}</span>
-              <span style={S.wordSpy}>卧底：{pair.spy}</span>
+              <span style={S.wordCiv}>{t("wordCiv", { word: pair.civ })}</span>
+              <span style={S.wordSpy}>{t("wordSpy", { word: pair.spy })}</span>
             </div>
           </div>
         )}
