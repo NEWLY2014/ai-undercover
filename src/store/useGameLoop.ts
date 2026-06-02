@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useCallback, useRef, useState } from "react";
 import { agentDescribe, agentReflect, agentSpyGuess, agentSuspect, agentVote } from "@/ai/agent";
 import { append as appendMemory, recall as recallMemory } from "@/ai/memory";
@@ -13,7 +14,6 @@ import {
   pickSpyIndices,
   publicTranscript,
   speakingOrder,
-  tallyText,
   tallyVotes,
 } from "@/game/engine";
 import { HUMAN_PROFILE, PERSONAS } from "@/game/personas";
@@ -44,6 +44,12 @@ export interface HumanTurn {
 }
 
 export function useGameLoop() {
+  const t = useTranslations("GameLog");
+  // Format a vote tally ("Alice 2 votes, Mia 1 vote") in the active locale.
+  const fmtTally = (tally: Record<string, number>) =>
+    Object.entries(tally)
+      .map(([name, count]) => t("votesEntry", { name, count }))
+      .join(t("listSep"));
   const [phase, setPhase] = useState<Phase>("setup");
   const [players, setPlayers] = useState<Player[]>([]);
   const [round, setRound] = useState(1);
@@ -198,11 +204,12 @@ export function useGameLoop() {
     setLog([
       {
         type: "system",
-        text:
-          `本局开始 · ${ps.length} 名玩家入座，其中潜伏着 ${spyIndices.length} 名卧底` +
-          (blankIndex >= 0 ? `，还混入了 1 名白板(没有词)。` : `。`),
+        text: t(blankIndex >= 0 ? "gameStartBlank" : "gameStartNoBlank", {
+          players: ps.length,
+          spies: spyIndices.length,
+        }),
       },
-      { type: "system", text: `平民与卧底各自拿到了一个相近但不同的词。连他们自己都还不知道谁是那个例外。` },
+      { type: "system", text: t("gameIntro") },
     ]);
     setPhase("ready");
 
@@ -227,7 +234,7 @@ export function useGameLoop() {
     setError(null);
     setPhase("describing");
     const r = roundRef.current;
-    addLog({ type: "phase", text: `第 ${r} 轮 · 描述环节`, round: r });
+    addLog({ type: "phase", text: t("describePhase", { round: r }), round: r });
 
     const working = playersRef.current.map((p) => ({ ...p }));
     const speakIds = orderRef.current.filter((id) => working.find((p) => p.id === id)?.alive);
@@ -249,11 +256,11 @@ export function useGameLoop() {
             const input = (await waitForHuman("describe", sp)).trim();
             if (!input) break;
             if (isLazyClue(input)) {
-              setError("不能说“和上面一样/同上”这类话，请认真描述一句。");
+              setError(t("errLazy"));
               continue;
             }
             if (isDuplicateClue(input, said)) {
-              setError("不能和别人说过的完全重复，换个角度再说一句。");
+              setError(t("errDup"));
               continue;
             }
             setError(null);
@@ -321,7 +328,7 @@ export function useGameLoop() {
       setPhase("described");
     } catch (e) {
       setSpeakingId(null);
-      setError(`描述环节出错：${e instanceof Error ? e.message : String(e)}（可点“开始本轮描述”重试本轮）`);
+      setError(t("errDescribe", { msg: e instanceof Error ? e.message : String(e) }));
       setPhase("ready");
     } finally {
       setBusy(false);
@@ -335,7 +342,7 @@ export function useGameLoop() {
     const ai = working.filter((p) => p.kind === "ai");
     if (ai.length === 0) return;
     setReflecting(true);
-    addLog({ type: "system", text: "AI 们正在复盘本局、记下经验……" });
+    addLog({ type: "system", text: t("reflecting") });
     const transcript = publicTranscript(working);
     const results = await Promise.all(
       ai.map(async (p) => {
@@ -367,7 +374,7 @@ export function useGameLoop() {
     );
     setReflecting(false);
     const total = results.reduce((n, x) => n + x, 0);
-    addLog({ type: "system", text: `复盘完成，共写入 ${total} 条经验到各 AI 的长期记忆(下一局会自动带上)。` });
+    addLog({ type: "system", text: t("reflectDone", { total }) });
     track("reflect_done", { winner, reflectors: ai.length, learningsWritten: total });
   };
 
@@ -450,7 +457,7 @@ export function useGameLoop() {
   const runSpyGuess = async (spy: Player, working: Player[]): Promise<"civ" | "spy"> => {
     const civWord = working.find((p) => p.role === "civilian")?.word ?? "";
     const allClues = publicTranscript(working);
-    addLog({ type: "system", text: `${spy.name} 是最后一名卧底——给他一次「猜词反杀」的机会：猜中平民的词就翻盘。` });
+    addLog({ type: "system", text: t("spyComebackPrompt", { name: spy.name }) });
 
     let guess = "";
     if (spy.kind === "human") {
@@ -483,7 +490,7 @@ export function useGameLoop() {
     const g = norm(guess);
     const c = norm(civWord);
     const correct = !!g && !!c && (g.includes(c) || c.includes(g));
-    addLog({ type: "system", text: `${spy.name} 猜：「${guess || "(没猜)"}」——平民的词是「${civWord}」。` });
+    addLog({ type: "system", text: t("spyComebackResult", { name: spy.name, guess: guess || t("noGuess"), word: civWord }) });
     track("spy_guess", { round: roundRef.current, guesser: spy.name, kind: spy.kind, hasGuess: !!g, correct });
     return correct ? "spy" : "civ";
   };
@@ -494,7 +501,7 @@ export function useGameLoop() {
     setError(null);
     setPhase("voting");
     const r = roundRef.current;
-    addLog({ type: "phase", text: `第 ${r} 轮 · 投票环节`, round: r });
+    addLog({ type: "phase", text: t("votePhase", { round: r }), round: r });
 
     const working = playersRef.current.map((p): Player => ({ ...p }));
 
@@ -502,7 +509,7 @@ export function useGameLoop() {
       const aliveNames = aliveOf(working).map((p) => p.name);
       await castVotes(working, aliveNames, publicTranscript(working));
       const first = tallyVotes(working);
-      addLog({ type: "tally", text: `计票结果：${tallyText(first.tally)}。` });
+      addLog({ type: "tally", text: t("tallyResult", { tally: fmtTally(first.tally) }) });
       track("tally", { round: r, stage: "first", tie: first.tie, top: first.topNames });
 
       let outName: string;
@@ -511,7 +518,7 @@ export function useGameLoop() {
       } else {
         // Tie-break: tied players each add one more clue, then a revote restricted
         // to just the tied candidates. Still tied → nobody is eliminated.
-        addLog({ type: "system", text: `出现平票（${first.topNames.join("、")}）——进入 PK：他们各补一句描述后重投。` });
+        addLog({ type: "system", text: t("tieBreak", { names: first.topNames.join(t("tieNamesSep")) }) });
         const transcript = publicTranscript(working).split("\n").filter(Boolean);
         for (const nm of first.topNames) {
           const sp = working.find((p) => p.name === nm && p.alive);
@@ -554,12 +561,12 @@ export function useGameLoop() {
           await sleep(200);
         }
         setSpeakingId(null);
-        addLog({ type: "phase", text: `第 ${r} 轮 · PK 重投`, round: r });
+        addLog({ type: "phase", text: t("pkPhase", { round: r }), round: r });
         await castVotes(working, first.topNames, publicTranscript(working), first.topNames);
         const second = tallyVotes(working);
-        addLog({ type: "tally", text: `PK 计票：${tallyText(second.tally)}。` });
+        addLog({ type: "tally", text: t("pkTally", { tally: fmtTally(second.tally) }) });
         if (second.tie) {
-          addLog({ type: "system", text: `PK 仍然平票，本轮无人出局。` });
+          addLog({ type: "system", text: t("pkStillTie") });
           setPhase("revealed");
           return;
         }
@@ -578,10 +585,10 @@ export function useGameLoop() {
         isSpy: out.isSpy,
         word: out.word,
         text: out.isSpy
-          ? `${out.name} 被票出——他正是卧底！他的词是「${out.word}」。`
+          ? t("elimSpy", { name: out.name, word: out.word })
           : out.role === "blank"
-            ? `${out.name} 被票出，但他是白板(根本没有词)！卧底还在场……`
-            : `${out.name} 被票出，但他是平民，词是「${out.word}」。卧底还在场……`,
+            ? t("elimBlank", { name: out.name })
+            : t("elimCiv", { name: out.name, word: out.word }),
       });
       track("eliminate", { round: r, name: out.name, kind: out.kind, role: out.role, isSpy: out.isSpy });
 
@@ -595,7 +602,7 @@ export function useGameLoop() {
         setPhase("gameover");
         addLog({
           type: "result",
-          text: w === "civ" ? "🎉 平民阵营胜利！卧底已被揪出。" : "🩸 卧底阵营胜利！",
+          text: w === "civ" ? t("resultCiv") : t("resultSpy"),
         });
         track("game_over", {
           winner: w,
@@ -609,7 +616,7 @@ export function useGameLoop() {
       }
     } catch (e) {
       setSpeakingId(null);
-      setError(`投票环节出错：${e instanceof Error ? e.message : String(e)}`);
+      setError(t("errVote", { msg: e instanceof Error ? e.message : String(e) }));
       setPhase("described");
     } finally {
       setBusy(false);
@@ -624,7 +631,7 @@ export function useGameLoop() {
     orderRef.current = ord;
     setOrder(ord);
     setPhase("ready");
-    addLog({ type: "system", text: `进入第 ${next} 轮，场上还剩 ${aliveOf(playersRef.current).length} 人。` });
+    addLog({ type: "system", text: t("nextRound", { next, alive: aliveOf(playersRef.current).length }) });
   }, []);
 
   const restart = useCallback(() => {
