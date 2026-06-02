@@ -84,6 +84,17 @@ function groupCalls(calls: Rec[], key: string): Grouped[] {
 }
 
 export async function GET(req: NextRequest) {
+  // Admin gate: when DASHBOARD_KEY is set (production) require it via the
+  // x-dashboard-key header or ?key=. Left open when unset so local/LAN dev needs
+  // no key. The full Phase 1 hardening replaces this with real admin auth.
+  const adminKey = process.env.DASHBOARD_KEY;
+  if (adminKey) {
+    const provided = req.headers.get("x-dashboard-key") ?? req.nextUrl.searchParams.get("key");
+    if (provided !== adminKey) {
+      return NextResponse.json({ error: "未授权：需要管理员密钥。" }, { status: 401 });
+    }
+  }
+
   const dates = await listDates();
   const param = req.nextUrl.searchParams.get("date") ?? "";
 
