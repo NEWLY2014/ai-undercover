@@ -32,7 +32,7 @@ const DIFFICULTY_OPTIONS = [
   { value: "3", label: "困难(很接近)" },
 ];
 
-// Remember the last-used setup within this tab session: it survives "再来一局"
+// Remember the last-used setup within this tab session: it survives consecutive games
 // and reloads (sessionStorage), and clears when the tab/browser is closed.
 type Mode = "spectate" | "play" | "masterclass";
 interface SetupPrefs {
@@ -70,7 +70,7 @@ function saveSetupPrefs(p: SetupPrefs): void {
 
 export default function Setup({ onStart }: { onStart: (c: GameConfig) => void }) {
   const [total, setTotal] = useState(5);
-  // Three game modes. "masterclass" (大师课) = you play WITH coaching: forces
+  // Three game modes. "masterclass" = you play WITH coaching: forces
   // humanPlayers=1 and sets tutorial=true (hints + AI reasoning shown).
   const [mode, setMode] = useState<Mode>("spectate");
   const human: 0 | 1 = mode === "spectate" ? 0 : 1;

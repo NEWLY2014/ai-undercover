@@ -2,7 +2,7 @@
 //   1. server console (stdout)        — live, human-scannable while the dev/prod server runs
 //   2. logs/undercover-YYYY-MM-DD.jsonl — one JSON object per line, for later analysis
 //
-// This is pure OBSERVATION (可观测日志): it records what happened, it never changes
+// This is pure observation: it records what happened, it never changes
 // any agent's behaviour. File writes are wrapped so a logging failure can never
 // break the request that triggered it.
 import { appendFile, mkdir } from "fs/promises";

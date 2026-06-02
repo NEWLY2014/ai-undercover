@@ -1,95 +1,89 @@
-# 谁是卧底 · AI 局 (ai-undercover)
+# ai-undercover
 
-> 多智能体社交博弈 —— 一桌性格各异的 AI 各执一词,其中藏着卧底,连它们自己都还蒙在鼓里。看它们如何描述、试探、互相指认;你也可以入座同桌。
->
-> A full-stack, multi-agent "Who is the Undercover" (谁是卧底) game where each AI player thinks, remembers, and learns independently.
+A multi-agent take on **谁是卧底** ("Who's the Undercover"), the Chinese party word game. A table of AI players each get a secret word — most share the same one, a hidden *undercover* gets a similar-but-different word, and nobody is told which they are. They take turns describing their word without naming it, then vote someone out each round. You can watch the AIs play each other, sit down at the table yourself, or take a coached "masterclass" round to sharpen your own game.
 
-## ✨ 特性
+It's built with Next.js and TypeScript. Each AI runs as its own agent — separate reasoning, its own private notes, its own thinking style — and they keep learning from one game to the next within a session.
 
-**真正的多智能体(不是套人设的同一个 prompt)**
-- **独立思考**:每个 Agent 只看到它该看到的信息,独立给出推理 (`reasoning`)。
-- **独立记忆空间**:局内"私人笔记"逐回合自更新、只回灌给自己。
-- **不同思维方式**:演绎 / 直觉 / 心机 / 概率 / 保守…… 每个角色可选,注入各自提示词。
-- **初始素质**:推理力 / 谨慎度 / 伪装力 / 表达力(0–10),作为人设影响发言风格。
-- **跨局学习**:每局结束后 Agent 自己复盘、写下经验,下一局自动召回——同一个"老K"越玩越会打。
+## What's in it
 
-**完整玩法**
-- 可配置总人数 / 卧底数 / 是否含白板;纯观战 或 你 + 多 AI 同桌。
-- 多卧底、**卧底猜词反杀**、平票 PK 重投、**白板**角色。
-- 词库分主题 / 难度,可筛选。
-- **计分与成就**:胜率、连胜、押中率、成就解锁(localStorage)。
+**The agents are actually separate**, not one prompt wearing different hats. Every AI only sees what a real player at the table would, produces its own `reasoning`, and keeps a private running note it updates each turn and feeds back only to itself. Each seat has a thinking style (deductive, intuitive, scheming, probabilistic, cautious…) and a 0–10 attribute sheet — reasoning, caution, disguise, expressiveness — that colors how it talks. After a game, each agent reflects, writes down what it learned, and recalls those lessons next round, so the same "老K" gets sharper the longer you keep playing.
 
-**开发者模式**
-- 每句发言后,所有 AI 实时输出对每个人的"卧底嫌疑分" → **嫌疑矩阵热力图 + 时间轴回放**,直观看到怀疑如何随线索流动。
+**The full game.** Set the table size, the number of spies, and whether to drop in a 白板 (a "blank" seat that gets no word at all). Multiple spies are supported, along with the eliminated spy's last-chance guess to steal the win, tie-break PK revotes, and the blank role. The word bank is tagged by theme and difficulty so you can filter it.
 
-## 🧱 技术栈
+**Three ways to play:**
+- **Spectate** — just watch, and bet on who the undercover is.
+- **Sit in** — take a seat alongside the AIs.
+- **Masterclass** — you play with a coach: hints when it's your turn, plus every AI's private 💭 reasoning on screen so you can see how the strong players think.
 
-- **Next.js 16**(App Router)+ **TypeScript**,纯前端 React + 服务端 API Route。
-- **可切换 LLM provider**:`volcengine`(火山方舟 Ark)/ `ollama`(本地免费)/ `anthropic`。
-- 服务端 `/api/agent` 持有密钥,浏览器永不接触 key。
-- 结构化输出:Anthropic 用 tool-use、Ollama 用 `format` JSON schema、火山方舟用 JSON 提示 + 稳健抽取。
+**Developer mode.** After every statement, each AI re-scores how much it suspects everyone else. You get a live suspicion heatmap with a timeline you can scrub back through, so you can watch suspicion shift as clues land.
 
-## 🏛 架构
+**Dashboard.** `/dashboard` reads the backend event logs and charts agent-call performance (latency, token usage, breakdowns by provider/model), game analytics (win rates, round counts, how often the spy gets caught in round one), and a raw event browser.
 
-- **纯函数引擎** `src/game/engine.ts` 负责确定性的"裁判"工作:发牌、按实际投出的票计票、票出得票最高者、判定胜负与轮次。
-- **AI 的发言、投票、嫌疑分、跨局复盘经验都由 LLM 产出**,前端负责把它们存储、回灌与渲染。
-- 投票不合法时**重新询问同一个 agent**,直到拿到一个合法选择。
+## Stack
 
-## 🚀 本地运行
+- Next.js (App Router) + TypeScript — React on the front, a few server route handlers on the back.
+- A pluggable LLM provider: `volcengine` (Volcengine Ark / Doubao), `ollama` (free and local), or `anthropic`. The API key stays server-side in `/api/agent`; the browser never touches it.
+- Structured output is handled per provider — tool calls for Anthropic, a `format` JSON schema for Ollama, and a JSON-shape prompt with robust extraction for Volcengine.
+
+## How it fits together
+
+- `src/game/engine.ts` is a pure-function referee: it deals the words, counts the votes that were actually cast, eliminates the top vote, and decides who won.
+- The agents' clues, votes, suspicion scores, and post-game lessons all come from the LLM. The front end stores, replays, and renders them.
+- An illegal vote gets the agent asked again rather than having a choice picked for it.
+- Memory, stats, and your last setup live in `sessionStorage`: they carry across consecutive games and page reloads, and clear when you close the tab.
+
+## Running it locally
 
 ```bash
 npm install
-cp .env.example .env.local   # 然后按下面填好 provider
-npm run dev                  # 打开 http://localhost:3000
+cp .env.example .env.local   # fill in a provider (see below)
+npm run dev                  # http://localhost:3000
 ```
 
-### 配置 provider(`.env.local`)
+### Picking a provider (`.env.local`)
 
-**A. 本地 Ollama(免费 / 离线)**
+**Local Ollama (free, offline)**
 ```env
 UNDERCOVER_PROVIDER=ollama
 UNDERCOVER_OLLAMA_HOST=http://127.0.0.1:11434
-UNDERCOVER_OLLAMA_MODEL=qwen2.5:7b   # 或 qwen2.5:3b(更快)
+UNDERCOVER_OLLAMA_MODEL=qwen2.5:7b   # or qwen2.5:3b for speed
 ```
-需先 `ollama pull qwen2.5:7b`。
+Pull the model first with `ollama pull qwen2.5:7b`.
 
-**B. 火山方舟 Ark(云端,OpenAI 兼容)**
+**Volcengine Ark (cloud, OpenAI-compatible)**
 ```env
 UNDERCOVER_PROVIDER=volcengine
-ARK_API_KEY=你的key
+ARK_API_KEY=your-key
 ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/v3
-ARK_MODEL=你的接入点ep-...或已开通的模型名   # 例 doubao-seed-2-0-mini-...
+ARK_MODEL=your-endpoint-ep-...   # e.g. doubao-seed-2-0-mini-...
 ```
-> 注意:火山方舟需先在控制台**开通模型**或**创建在线推理接入点(ep-...)**才能调用。
+Ark needs you to activate a model, or create an inference endpoint (`ep-...`), in the console before you can call it.
 
-**C. Anthropic**
+**Anthropic**
 ```env
 UNDERCOVER_PROVIDER=anthropic
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-### 局域网联机(同一 WiFi)
+### Playing over a LAN (same Wi-Fi)
 
 ```bash
-npm run build && npm run start:lan   # 监听 0.0.0.0:3000
+npm run build && npm run start:lan   # listens on 0.0.0.0:3000
 ```
-本机用 `http://localhost:3000`;其它设备用 `http://<你的局域网IP>:3000`(Windows 需放行 3000 入站防火墙)。
+Use `http://localhost:3000` on the host machine, and `http://<your-LAN-IP>:3000` from other devices. On Windows you'll need to allow inbound traffic on port 3000 through the firewall.
 
-## 📁 结构
+## Layout
 
 ```
 src/
-  app/            页面 + /api/agent 后端代理
-  game/           engine(纯规则)/ words / prompts / thinkingStyles / types
-  ai/             agent(client→后端)/ memory(跨局记忆)
-  components/     Setup / Board / SuspicionPanel / MemoryPanel / StatsPanel / AISlotEditor
-  store/          useGameLoop(驱动 describe/vote/round)
-  lib/            stats(计分成就)
+  app/            pages + /api/agent, /api/track, /api/dashboard, and the dashboard
+  game/           engine (rules) / words / prompts / thinkingStyles / types
+  ai/             agent (client → backend) / memory (session-scoped lessons)
+  components/     Setup / Board / SuspicionPanel / MemoryPanel / StatsPanel / AISlotEditor / Tutorial
+  store/          useGameLoop (drives describe / vote / round)
+  lib/            stats / telemetry (client) / serverLog (backend JSONL)
 ```
 
-## 📌 状态
+## Status
 
-阶段 A(能跑)、A.5(本地 provider + 开发者模式)、B(多智能体:记忆 / 思维 / 学习)、C(多卧底 / 反杀 / PK / 白板 / 词库)、D 部分(计分成就、局域网)均已完成。后续:教学模式、移动端适配、性能优化、公网部署(含防滥用)。
-
----
-
+The core game runs end to end: local and cloud providers, developer mode, the multi-agent stack (memory, thinking styles, cross-game learning), multiple spies, the spy's comeback guess, PK revotes, the blank role, the themed word bank, scoring and achievements, masterclass coaching, LAN play, telemetry, and the dashboard. Still on the list: mobile polish, performance, and a public deployment with some abuse protection.

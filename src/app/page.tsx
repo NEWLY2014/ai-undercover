@@ -68,7 +68,7 @@ export default function Home() {
               <Setup
                 onStart={(c) => {
                   setGuess(null);
-                  // 大师课 shows the (skippable) rules intro first, then starts.
+                  // Masterclass shows the (skippable) rules intro first, then starts.
                   if (c.tutorial) {
                     setPendingConfig(c);
                     setTutorialIntro(true);

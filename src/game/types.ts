@@ -1,4 +1,4 @@
-// Core game types for 谁是卧底 (Who is the Undercover).
+// Core game types for the Who's-the-Undercover game.
 // The engine (engine.ts) operates on these as pure data — no React, no AI calls.
 
 export type Phase =
@@ -20,14 +20,14 @@ export interface WordPair {
   difficulty?: number; // 1 (easy/far apart) .. 3 (hard/close)
 }
 
-// "初始素质" — a character sheet (0–10). IRON LAW: these are ONLY rendered into
+// Attribute sheet (0–10). These are ONLY rendered into
 // the agent's own prompt as self-description (giving it info about who it is).
 // Code never reads these numbers to bias/override the agent's decisions.
 export interface AgentAttributes {
-  reasoning: number; // 推理力
-  caution: number; // 谨慎度
-  disguise: number; // 伪装力
-  expressiveness: number; // 表达力
+  reasoning: number; // reasoning
+  caution: number; // caution
+  disguise: number; // disguise
+  expressiveness: number; // expressiveness
 }
 
 export const DEFAULT_ATTRIBUTES: AgentAttributes = {
@@ -46,7 +46,7 @@ export interface AgentProfile {
   trait: string;
   thinkingStyle?: string; // key into THINKING_STYLES (game/thinkingStyles.ts)
   model?: string; // per-agent model override; defaults server-side
-  attributes?: AgentAttributes; // 初始素质 — prompt context only
+  attributes?: AgentAttributes; // attribute sheet — prompt context only
 }
 
 export type PlayerKind = "ai" | "human";
@@ -85,7 +85,7 @@ export interface GameConfig {
   totalPlayers: number; // 3..10
   humanPlayers: 0 | 1; // Phase A: at most 1 human
   spyCount: number; // number of undercover spies
-  blankEnabled: boolean; // include one 白板 (blank) who gets no word
+  blankEnabled: boolean; // include one blank seat that gets no word
   wordPairId: string | null; // null = random (within theme/difficulty filter)
   theme: string | null; // null = any
   difficulty: number | null; // null = any

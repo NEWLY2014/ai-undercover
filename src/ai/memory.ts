@@ -3,7 +3,7 @@
 // ABOUT ITSELF (via the reflect call) — this module only stores and recalls them.
 // It never interprets a learning's meaning or changes any agent behavior based on
 // it (iron law: memory is information given back to the agent, not a decision made
-// for it). sessionStorage scopes memory to the tab session: it survives "再来一局"
+// for it). sessionStorage scopes memory to the tab session: it survives consecutive games
 // and page reloads, but clears when the tab/browser is closed.
 
 const PREFIX = "undercover:mem:";
