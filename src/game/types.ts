@@ -91,6 +91,7 @@ export interface GameConfig {
   difficulty: number | null; // null = any
   devMode: boolean; // developer mode: after every statement, all AI agents re-score suspicion
   tutorial?: boolean; // guided teaching game: rules intro + phase hints + AI reasoning shown
+  locale?: "zh" | "en"; // UI/content locale carried from the route (zh default)
   // Advanced settings: per-AI-seat overrides (name/emoji/trait/thinkingStyle/model/attributes).
   // When absent, defaults from PERSONAS are used. Length should match AI seat count.
   aiSlots?: AgentProfile[];

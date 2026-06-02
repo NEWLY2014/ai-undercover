@@ -1,0 +1,17 @@
+{
+  "Landing": {
+    "kicker": "MULTI-AGENT · SOCIAL DEDUCTION",
+    "title": "Who's the Undercover · AI Table",
+    "tagline": "A table of distinct AI players, each holding a word — one of them is the undercover, and none of them know who. Watch them describe, probe, and accuse — or take a seat yourself, or sit a masterclass.",
+    "playCta": "Play now →",
+    "modesTitle": "Three ways to play",
+    "modeSpectate": "Spectate — watch the AIs play and bet on the undercover.",
+    "modePlay": "Sit in — take a seat and play alongside the AIs.",
+    "modeMasterclass": "Masterclass — a coached game with hints and the AIs' reasoning shown.",
+    "dashboardLink": "📊 Dashboard"
+  },
+  "Nav": {
+    "play": "Play",
+    "home": "← Home"
+  }
+}
