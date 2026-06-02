@@ -108,16 +108,38 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [authKey, setAuthKey] = useState<string>("");
+  const [needKey, setNeedKey] = useState(false);
+  const [keyInput, setKeyInput] = useState("");
+
+  // Pick up an admin key from ?key= (persisted) or sessionStorage once on mount.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const fromUrl = new URL(window.location.href).searchParams.get("key");
+    if (fromUrl) window.sessionStorage.setItem("undercover:dashkey", fromUrl);
+    setAuthKey(fromUrl ?? window.sessionStorage.getItem("undercover:dashkey") ?? "");
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setErr(null);
     const q = date ? `?date=${encodeURIComponent(date)}` : "";
-    fetch(`/api/dashboard${q}`)
-      .then((r) => r.json())
-      .then((d: DashData) => {
-        if (cancelled) return;
+    const headers: Record<string, string> = authKey ? { "x-dashboard-key": authKey } : {};
+    fetch(`/api/dashboard${q}`, { headers })
+      .then(async (r) => {
+        if (r.status === 401) {
+          if (!cancelled) {
+            setNeedKey(true);
+            setLoading(false);
+          }
+          return null;
+        }
+        return (await r.json()) as DashData;
+      })
+      .then((d) => {
+        if (cancelled || !d) return;
+        setNeedKey(false);
         setData(d);
         if (!date && d.selected) setDate(d.selected);
         setLoading(false);
@@ -130,7 +152,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [date]);
+  }, [date, authKey]);
 
   const eventTypes = useMemo(() => {
     if (!data) return [];
@@ -169,6 +191,33 @@ export default function Dashboard() {
             <a href="/" style={{ fontSize: 13, color: C.amber, textDecoration: "none" }}>← 返回游戏</a>
           </div>
         </div>
+
+        {needKey && (
+          <div style={{ ...panel, marginTop: 24, maxWidth: 440 }}>
+            <div style={{ fontSize: 14, marginBottom: 8 }}>需要管理员密钥</div>
+            <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 10 }}>
+              此看板已受保护。请输入管理员密钥（服务端 DASHBOARD_KEY）。
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="password"
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                placeholder="管理员密钥"
+                style={{ flex: 1, fontSize: 13, color: C.ink, background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 8, padding: "8px 10px" }}
+              />
+              <button
+                onClick={() => {
+                  if (typeof window !== "undefined") window.sessionStorage.setItem("undercover:dashkey", keyInput);
+                  setAuthKey(keyInput);
+                }}
+                style={{ fontSize: 13, color: "#1a1208", background: C.amber, border: "none", borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontWeight: 600 }}
+              >
+                进入
+              </button>
+            </div>
+          </div>
+        )}
 
         {loading && <p style={{ color: C.muted, marginTop: 24 }}>加载中…</p>}
         {err && <p style={{ color: C.red, marginTop: 24 }}>加载失败：{err}</p>}

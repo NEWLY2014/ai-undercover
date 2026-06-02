@@ -14,6 +14,7 @@ import {
   type VotePayload,
 } from "@/game/prompts";
 import { logEvent } from "@/lib/serverLog";
+import { clientIp, rateLimit } from "@/lib/rateLimit";
 
 // Normalised token usage so every provider logs the same shape (fields optional —
 // some providers/models don't report counts).
@@ -263,15 +264,69 @@ async function runVolcengine(spec: { schema: JsonSchema }, prompt: string, model
   }
 }
 
+// Abuse guards: bound the request body and the long prompt-feeding fields BEFORE
+// anything reaches the paid LLM. Legitimate games stay well under these caps;
+// these only reject oversized/abusive payloads (reject, never truncate — so a
+// real agent's input is never silently altered).
+const MAX_BODY_BYTES = 32 * 1024;
+const FIELD_CAPS: Record<string, number> = {
+  transcript: 12000,
+  allClues: 12000,
+  memory: 4000,
+  name: 100,
+  trait: 200,
+  word: 100,
+};
+function payloadCapError(body: AgentRequest): string | null {
+  const p = body.payload as unknown as Record<string, unknown> | undefined;
+  if (!p || typeof p !== "object") return "缺少 payload。";
+  for (const [k, max] of Object.entries(FIELD_CAPS)) {
+    const v = p[k];
+    if (typeof v === "string" && v.length > max) return `字段 ${k} 超出长度上限。`;
+  }
+  if (Array.isArray(p.learnings)) {
+    if (p.learnings.length > 20) return "learnings 数量超限。";
+    for (const l of p.learnings) if (typeof l === "string" && l.length > 800) return "learnings 单条过长。";
+  }
+  if (typeof p.model === "string" && p.model.length > 120) return "model 名过长。";
+  return null;
+}
+
 export async function POST(req: NextRequest) {
+  // Per-IP rate limit first — cheapest rejection, before reading the body.
+  const rl = rateLimit(`agent:${clientIp(req)}`, [
+    { windowMs: 10_000, max: 30 },
+    { windowMs: 60_000, max: 200 },
+  ]);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "请求过于频繁，请稍后再试。" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } },
+    );
+  }
+
+  let raw: string;
+  try {
+    raw = await req.text();
+  } catch {
+    return NextResponse.json({ error: "无法读取请求体。" }, { status: 400 });
+  }
+  if (raw.length > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: "请求体过大。" }, { status: 413 });
+  }
+
   let body: AgentRequest;
   try {
-    body = (await req.json()) as AgentRequest;
+    body = JSON.parse(raw) as AgentRequest;
   } catch {
     return NextResponse.json({ error: "请求体不是合法 JSON。" }, { status: 400 });
   }
   if (!["describe", "vote", "suspect", "reflect", "spyGuess"].includes(body.kind)) {
     return NextResponse.json({ error: `未知的 kind: ${(body as { kind?: string }).kind}` }, { status: 400 });
+  }
+  const capErr = payloadCapError(body);
+  if (capErr) {
+    return NextResponse.json({ error: capErr }, { status: 400 });
   }
 
   const spec = buildSchema(body);
