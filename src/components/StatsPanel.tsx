@@ -25,7 +25,7 @@ const cell: CSSProperties = {
   gap: 2,
 };
 const big: CSSProperties = { fontFamily: "var(--font-mono)", fontSize: 22, color: "var(--amber)" };
-const small: CSSProperties = { fontSize: 11, color: "var(--muted)" };
+const small: CSSProperties = { fontSize: 12, color: "var(--muted)" };
 
 function pct(n: number, d: number): string {
   if (d <= 0) return "—";
@@ -109,7 +109,6 @@ export default function StatsPanel({ version = 0 }: { version?: number }) {
                 borderColor: got ? "var(--amber)" : "var(--line)",
                 color: got ? "var(--amber)" : "var(--muted)",
                 background: got ? "rgba(232,161,58,.10)" : "transparent",
-                opacity: got ? 1 : 0.6,
               }}
             >
               {got ? "🏆" : "🔒"} {a.label}

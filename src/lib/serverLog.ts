@@ -33,6 +33,20 @@ function dayFile(now: Date): string {
   return path.join(LOG_DIR, `undercover-${y}-${m}-${d}.jsonl`);
 }
 
+// Serialize file appends so concurrent logEvent() calls (e.g. parallel agent
+// calls fired with Promise.all) never interleave partial lines in the JSONL.
+let writeChain: Promise<void> = Promise.resolve();
+function enqueueAppend(file: string, data: string): Promise<void> {
+  const next = writeChain.then(() => appendFile(file, data, "utf8"));
+  // Keep the chain alive but swallow errors so one failed write can't break the
+  // queue for every subsequent event. The caller still sees this write's error.
+  writeChain = next.then(
+    () => undefined,
+    () => undefined,
+  );
+  return next;
+}
+
 // Record one event. Stamps an ISO timestamp, prints a compact console line, and
 // appends a full JSONL row. Awaitable, but callers may fire-and-forget.
 export async function logEvent(rec: LogRecord): Promise<void> {
@@ -47,10 +61,11 @@ export async function logEvent(rec: LogRecord): Promise<void> {
     /* console must never throw the request down */
   }
 
-  // File: full JSONL row, best-effort.
+  // File: full JSONL row, best-effort. Appends are serialized (see enqueueAppend)
+  // so concurrent events never interleave partial lines.
   try {
     await ensureDir();
-    await appendFile(dayFile(now), JSON.stringify(line) + "\n", "utf8");
+    await enqueueAppend(dayFile(now), JSON.stringify(line) + "\n");
   } catch (e) {
     try {
       console.warn(`[undercover] log file write failed: ${e instanceof Error ? e.message : String(e)}`);

@@ -23,9 +23,9 @@ const cardS: CSSProperties = {
   borderRadius: 10,
   padding: 10,
 };
-const tag: CSSProperties = { fontSize: 10, color: "var(--amber)", fontFamily: "var(--font-mono)", border: "1px solid var(--amber-dim)", borderRadius: 5, padding: "1px 6px" };
-const sub: CSSProperties = { fontSize: 11, color: "var(--muted)", margin: "6px 0 3px", fontFamily: "var(--font-mono)" };
-const item: CSSProperties = { fontSize: 12, color: "var(--ink)", marginBottom: 3, lineHeight: 1.45 };
+const tag: CSSProperties = { fontSize: 11.5, color: "var(--amber)", fontFamily: "var(--font-mono)", border: "1px solid var(--amber-dim)", borderRadius: 5, padding: "1px 6px" };
+const sub: CSSProperties = { fontSize: 12, color: "var(--muted)", margin: "6px 0 4px", fontFamily: "var(--font-mono)" };
+const item: CSSProperties = { fontSize: 12.5, color: "var(--ink)", marginBottom: 4, lineHeight: 1.5 };
 
 // Shows each AI agent's PRIVATE memory: long-term lessons recalled from past
 // games + the running working-memory note it updates each turn. Makes the

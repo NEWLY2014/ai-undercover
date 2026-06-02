@@ -17,15 +17,15 @@ const head: CSSProperties = { display: "flex", justifyContent: "space-between", 
 const titleS: CSSProperties = { fontFamily: "var(--font-mono)", letterSpacing: 1, fontSize: 13, textTransform: "uppercase" };
 const navBtn: CSSProperties = { fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink)", background: "var(--panel2)", borderWidth: 1, borderStyle: "solid", borderColor: "var(--line)", borderRadius: 7, padding: "4px 9px", cursor: "pointer" };
 const cellBase: CSSProperties = { fontFamily: "var(--font-mono)", fontSize: 12, textAlign: "center", padding: "6px 4px", borderRadius: 6, minWidth: 40 };
-const th: CSSProperties = { fontSize: 11, color: "var(--muted)", padding: "4px 6px", textAlign: "center", whiteSpace: "nowrap" };
+const th: CSSProperties = { fontSize: 12, color: "var(--muted)", padding: "4px 6px", textAlign: "center", whiteSpace: "nowrap" };
 const rowLabel: CSSProperties = { fontSize: 12, color: "var(--ink)", padding: "4px 8px 4px 0", whiteSpace: "nowrap", textAlign: "right" };
 
 function heat(score: number): CSSProperties {
   const a = Math.max(0, Math.min(100, score)) / 100;
   return {
     ...cellBase,
-    background: `rgba(223,75,66,${0.12 + a * 0.78})`,
-    color: a > 0.55 ? "#fff" : "var(--ink)",
+    background: `rgba(223,75,66,${0.18 + a * 0.72})`,
+    color: a > 0.5 ? "#fff" : "var(--ink)",
   };
 }
 
@@ -120,7 +120,7 @@ export default function SuspicionPanel({
           const reason = snap.reasons[String(r.id)];
           if (!reason) return null;
           return (
-            <div key={r.id} style={{ fontSize: 11.5, color: "var(--muted)" }}>
+            <div key={r.id} style={{ fontSize: 12, color: "var(--muted)" }}>
               <b style={{ color: "var(--ink)" }}>
                 {r.emoji} {r.name}
               </b>
@@ -130,7 +130,7 @@ export default function SuspicionPanel({
         })}
       </div>
       {suspecting && (
-        <div style={{ fontSize: 11.5, color: "var(--amber)", marginTop: 8, fontFamily: "var(--font-mono)" }}>● 正在评估下一句…</div>
+        <div style={{ fontSize: 12, color: "var(--amber)", marginTop: 8, fontFamily: "var(--font-mono)" }}>● 正在评估下一句…</div>
       )}
     </div>
   );
