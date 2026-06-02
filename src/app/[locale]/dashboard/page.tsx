@@ -17,6 +17,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Link } from "@/i18n/navigation";
 
 // ── theme ──────────────────────────────────────────────────────────────────
 const C = {
@@ -198,7 +199,7 @@ export default function Dashboard() {
               ))}
               <option value="all">全部</option>
             </select>
-            <a href="/" style={{ fontSize: 13, color: C.amber, textDecoration: "none" }}>← 返回游戏</a>
+            <Link href="/play" style={{ fontSize: 13, color: C.amber, textDecoration: "none" }}>← 返回游戏</Link>
           </div>
         </div>
 
