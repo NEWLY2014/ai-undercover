@@ -35,7 +35,7 @@ interface RunOutput {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type Provider = "ollama" | "anthropic" | "volcengine";
+type Provider = "ollama" | "anthropic" | "volcengine" | "minimax";
 const PROVIDER: Provider = (process.env.UNDERCOVER_PROVIDER as Provider) || "ollama";
 const OLLAMA_HOST = process.env.UNDERCOVER_OLLAMA_HOST || "http://127.0.0.1:11434";
 const OLLAMA_MODEL = process.env.UNDERCOVER_OLLAMA_MODEL || "qwen2.5:3b";
@@ -45,6 +45,12 @@ const ANTHROPIC_MODEL = process.env.UNDERCOVER_DEFAULT_MODEL || "claude-sonnet-4
 const ARK_KEY = process.env.ARK_API_KEY || "";
 const ARK_BASE = process.env.ARK_BASE_URL || "https://ark.cn-beijing.volces.com/api/v3";
 const ARK_MODEL = process.env.ARK_MODEL || "";
+// MiniMax — OpenAI-compatible (POST {base}/chat/completions). Model id e.g.
+// "MiniMax-M2". Note the body uses max_completion_tokens, not max_tokens.
+//   docs: https://platform.minimax.io/docs/api-reference/text-chat
+const MINIMAX_KEY = process.env.MINIMAX_API_KEY || "";
+const MINIMAX_BASE = process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1";
+const MINIMAX_MODEL = process.env.MINIMAX_MODEL || "MiniMax-M2";
 
 const SYSTEM =
   "你是一个正在玩“谁是卧底”社交推理游戏的玩家智能体。只输出符合给定 JSON 结构的内容，不要输出结构之外的任何文字。";
@@ -264,6 +270,61 @@ async function runVolcengine(spec: { schema: JsonSchema }, prompt: string, model
   }
 }
 
+// MiniMax via its OpenAI-compatible /chat/completions. MiniMax-M2 is a reasoning
+// model (its chain-of-thought goes to a separate reasoning_content), so we parse
+// the JSON out of `content`. The body uses max_completion_tokens (not max_tokens);
+// MiniMax recommends temperature 1.0 / top_p 0.95 for M2.
+//   docs: https://platform.minimax.io/docs/api-reference/text-chat
+async function runMinimax(spec: { schema: JsonSchema }, prompt: string, model: string): Promise<RunOutput> {
+  const res = await fetch(`${MINIMAX_BASE}/chat/completions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${MINIMAX_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: `${SYSTEM} ${jsonShapeHint(spec.schema)}` },
+        { role: "user", content: prompt },
+      ],
+      temperature: 1,
+      top_p: 0.95,
+      // M2 emits chain-of-thought before the answer; give headroom so the JSON
+      // content is never truncated by a long reasoning trace.
+      max_completion_tokens: 8192,
+    }),
+  });
+  const data = (await res.json()) as {
+    error?: { message?: string };
+    base_resp?: { status_code?: number; status_msg?: string };
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
+  if (!res.ok) {
+    throw new Error(
+      `MiniMax HTTP ${res.status}: ${data?.error?.message || data?.base_resp?.status_msg || JSON.stringify(data).slice(0, 300)}`,
+    );
+  }
+  // MiniMax can signal app-level errors via base_resp even on HTTP 200.
+  if (data?.base_resp?.status_code) {
+    throw new Error(`MiniMax error ${data.base_resp.status_code}: ${data.base_resp.status_msg ?? ""}`);
+  }
+  const usage: Usage = { inputTokens: data?.usage?.prompt_tokens, outputTokens: data?.usage?.completion_tokens };
+  const txt = data?.choices?.[0]?.message?.content ?? "";
+  const cleaned = txt.replace(/```json/gi, "").replace(/```/g, "").trim();
+  try {
+    return { result: JSON.parse(cleaned), usage };
+  } catch {
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    if (m) {
+      try {
+        return { result: JSON.parse(m[0]), usage };
+      } catch {
+        /* fall through */
+      }
+    }
+    throw new Error(`MiniMax 返回无法解析为 JSON：${cleaned.slice(0, 200)}`);
+  }
+}
+
 // Abuse guards: bound the request body and the long prompt-feeding fields BEFORE
 // anything reaches the paid LLM. Legitimate games stay well under these caps;
 // these only reject oversized/abusive payloads (reject, never truncate — so a
@@ -373,6 +434,14 @@ export async function POST(req: NextRequest) {
       // and use the single configured Ark model/endpoint.
       usedModel = ARK_MODEL;
       out = await runVolcengine(spec, prompt, ARK_MODEL);
+    } else if (PROVIDER === "minimax") {
+      if (!MINIMAX_KEY) {
+        return NextResponse.json({ error: "服务端 provider=minimax 但未配置 MINIMAX_API_KEY。" }, { status: 500 });
+      }
+      // Per-agent model overrides are Ollama tags — ignore them; use the configured
+      // MiniMax model (e.g. MiniMax-M2).
+      usedModel = MINIMAX_MODEL;
+      out = await runMinimax(spec, prompt, MINIMAX_MODEL);
     } else {
       usedModel = body.model || OLLAMA_MODEL;
       out = await runOllama(spec, prompt, usedModel);
@@ -414,6 +483,8 @@ export async function POST(req: NextRequest) {
       hint = `（无法连接本地 Ollama @ ${OLLAMA_HOST}，请确认 Ollama 已启动且已 pull 模型 ${OLLAMA_MODEL}）`;
     } else if (PROVIDER === "volcengine" && /NotFound|does not exist|access/i.test(detail)) {
       hint = "（火山方舟该 key 无法访问此模型：请在控制台创建“在线推理接入点”拿到 ep-... 填入 ARK_MODEL，或先在模型广场开通该模型）";
+    } else if (PROVIDER === "minimax" && /401|403|unauthor|invalid|api[ _-]?key|token/i.test(detail)) {
+      hint = "（MiniMax 鉴权失败：请确认 MINIMAX_API_KEY 正确，且 MINIMAX_MODEL（如 MiniMax-M2）已开通）";
     }
     return NextResponse.json({ error: `${PROVIDER} 调用失败: ${detail}${hint}` }, { status });
   }
