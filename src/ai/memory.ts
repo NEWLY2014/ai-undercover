@@ -1,12 +1,13 @@
-// Per-agent long-term memory, persisted in localStorage and keyed by the
-// agent's STABLE agentId. The contents are LESSONS THE AGENT WROTE ABOUT ITSELF
-// (via the reflect call) — this module only stores and recalls them. It never
-// interprets a learning's meaning or changes any agent behavior based on it
-// (iron law: memory is information given back to the agent, not a decision made
-// for it). The abstraction also lets us swap localStorage for a server DB later.
+// Per-agent memory for the current session, persisted in sessionStorage and
+// keyed by the agent's STABLE agentId. The contents are LESSONS THE AGENT WROTE
+// ABOUT ITSELF (via the reflect call) — this module only stores and recalls them.
+// It never interprets a learning's meaning or changes any agent behavior based on
+// it (iron law: memory is information given back to the agent, not a decision made
+// for it). sessionStorage scopes memory to the tab session: it survives "再来一局"
+// and page reloads, but clears when the tab/browser is closed.
 
 const PREFIX = "undercover:mem:";
-const MAX_STORED = 40; // cap per agent to keep localStorage small
+const MAX_STORED = 40; // cap per agent to keep sessionStorage small
 
 interface AgentMemoryFile {
   agentId: string;
@@ -16,7 +17,7 @@ interface AgentMemoryFile {
 function read(agentId: string): AgentMemoryFile {
   if (typeof window === "undefined") return { agentId, learnings: [] };
   try {
-    const raw = window.localStorage.getItem(PREFIX + agentId);
+    const raw = window.sessionStorage.getItem(PREFIX + agentId);
     if (!raw) return { agentId, learnings: [] };
     const parsed = JSON.parse(raw) as AgentMemoryFile;
     if (!Array.isArray(parsed.learnings)) return { agentId, learnings: [] };
@@ -29,9 +30,9 @@ function read(agentId: string): AgentMemoryFile {
 function write(file: AgentMemoryFile): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(PREFIX + file.agentId, JSON.stringify(file));
+    window.sessionStorage.setItem(PREFIX + file.agentId, JSON.stringify(file));
   } catch {
-    /* localStorage full / disabled — non-fatal */
+    /* sessionStorage full / disabled — non-fatal */
   }
 }
 
@@ -56,5 +57,5 @@ export function countLearnings(agentId: string): number {
 
 export function clearAgent(agentId: string): void {
   if (typeof window === "undefined") return;
-  window.localStorage.removeItem(PREFIX + agentId);
+  window.sessionStorage.removeItem(PREFIX + agentId);
 }
