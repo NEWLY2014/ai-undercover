@@ -1,6 +1,6 @@
 "use client";
 
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import Board from "@/components/Board";
 import Setup from "@/components/Setup";
@@ -15,6 +15,7 @@ import { useGameLoop } from "@/store/useGameLoop";
 
 export default function Home() {
   const g = useGameLoop();
+  const t = useTranslations("Play");
   const locale = useLocale() as "zh" | "en";
   const [guess, setGuess] = useState<number | null>(null);
   const [statsVersion, setStatsVersion] = useState(0);
@@ -46,18 +47,16 @@ export default function Home() {
       <div style={S.shell}>
         <header style={{ ...S.header, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
           <div>
-            <div style={S.kicker}>MULTI-AGENT · 社交博弈</div>
+            <div style={S.kicker}>{t("kicker")}</div>
             <h1 style={S.title}>
-              谁是卧底 <span style={{ color: "var(--amber)" }}>· AI 局</span>
+              {t("titleMain")} <span style={{ color: "var(--amber)" }}>{t("titleSuffix")}</span>
             </h1>
-            <p style={S.sub}>
-              多个 AI 各执一词，其中藏着卧底，连它们自己都还蒙在鼓里。看它们如何描述、试探、互相指认——你也可以入座同桌。
-            </p>
+            <p style={S.sub}>{t("tagline")}</p>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, flexShrink: 0 }}>
             <LocaleSwitcher />
             <Link href="/" style={{ fontSize: 12.5, color: "var(--muted)", textDecoration: "none" }}>
-              ← 首页
+              {t("home")}
             </Link>
           </div>
         </header>
@@ -122,9 +121,9 @@ export default function Home() {
         )}
 
         <footer style={S.footer}>
-          每个 AI 的发言与投票都由 AI / 本地模型实时生成 · 同样的词，每局走向都不同
+          {t("footer")}
           <span style={{ margin: "0 8px", opacity: 0.5 }}>·</span>
-          <Link href="/dashboard" style={{ color: "var(--amber)", textDecoration: "none" }}>📊 数据看板</Link>
+          <Link href="/dashboard" style={{ color: "var(--amber)", textDecoration: "none" }}>{t("dashboard")}</Link>
         </footer>
       </div>
     </div>

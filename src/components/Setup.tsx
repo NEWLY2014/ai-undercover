@@ -1,10 +1,11 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { S } from "@/app/styles";
 import AISlotEditor, { defaultSlots } from "@/components/AISlotEditor";
-import { maxSpyCount, suggestedSpyCount } from "@/game/engine";
+import { maxSpyCount } from "@/game/engine";
 import { PERSONAS } from "@/game/personas";
 import { THEMES, filterWordPairs } from "@/game/words";
 import type { AgentProfile, GameConfig } from "@/game/types";
@@ -25,11 +26,12 @@ const sel: CSSProperties = {
   cursor: "pointer",
 };
 
+// value = the difficulty filter value; key = i18n message key for the label.
 const DIFFICULTY_OPTIONS = [
-  { value: "", label: "任意难度" },
-  { value: "1", label: "简单(差异大)" },
-  { value: "2", label: "中等" },
-  { value: "3", label: "困难(很接近)" },
+  { value: "", key: "difficultyAny" },
+  { value: "1", key: "difficultyEasy" },
+  { value: "2", key: "difficultyMedium" },
+  { value: "3", key: "difficultyHard" },
 ];
 
 // Remember the last-used setup within this tab session: it survives consecutive games
@@ -69,6 +71,7 @@ function saveSetupPrefs(p: SetupPrefs): void {
 }
 
 export default function Setup({ onStart }: { onStart: (c: GameConfig) => void }) {
+  const t = useTranslations("Setup");
   const [total, setTotal] = useState(5);
   // Three game modes. "masterclass" = you play WITH coaching: forces
   // humanPlayers=1 and sets tutorial=true (hints + AI reasoning shown).
@@ -143,110 +146,104 @@ export default function Setup({ onStart }: { onStart: (c: GameConfig) => void })
 
   return (
     <div style={S.setup}>
-      <h2 style={S.setupTitle}>开一局</h2>
-      <p style={S.setupP}>
-        配置玩家、卧底数与词，然后看 AI 在牌桌上互相试探。想亲自下场，选「我也玩」；想边玩边被点拨、精进技术，选「🎓 大师课」。
-      </p>
+      <h2 style={S.setupTitle}>{t("title")}</h2>
+      <p style={S.setupP}>{t("desc")}</p>
 
       <div style={S.fieldRow}>
         <div style={S.field}>
-          <span style={S.fieldLabel}>总玩家数</span>
+          <span style={S.fieldLabel}>{t("totalPlayers")}</span>
           <div style={S.stepper}>
-            <button style={S.stepBtn} onClick={() => setTotal((t) => clampTotal(t - 1))} aria-label="减少">
+            <button style={S.stepBtn} onClick={() => setTotal((n) => clampTotal(n - 1))} aria-label={t("decrease")}>
               −
             </button>
             <span style={S.stepVal}>{total}</span>
-            <button style={S.stepBtn} onClick={() => setTotal((t) => clampTotal(t + 1))} aria-label="增加">
+            <button style={S.stepBtn} onClick={() => setTotal((n) => clampTotal(n + 1))} aria-label={t("increase")}>
               +
             </button>
           </div>
         </div>
 
         <div style={S.field}>
-          <span style={S.fieldLabel}>卧底数(最多 {spyMax})</span>
+          <span style={S.fieldLabel}>{t("spyCount", { max: spyMax })}</span>
           <div style={S.stepper}>
-            <button style={S.stepBtn} onClick={() => setSpyCount((s) => Math.max(1, s - 1))} aria-label="减少">
+            <button style={S.stepBtn} onClick={() => setSpyCount((s) => Math.max(1, s - 1))} aria-label={t("decrease")}>
               −
             </button>
             <span style={S.stepVal}>{spyCount}</span>
-            <button
-              style={S.stepBtn}
-              onClick={() => setSpyCount((s) => Math.min(spyMax, s + 1))}
-              aria-label="增加"
-            >
+            <button style={S.stepBtn} onClick={() => setSpyCount((s) => Math.min(spyMax, s + 1))} aria-label={t("increase")}>
               +
             </button>
           </div>
         </div>
 
         <div style={S.field}>
-          <span style={S.fieldLabel}>游戏模式</span>
+          <span style={S.fieldLabel}>{t("mode")}</span>
           <div style={S.toggle}>
             <button
               style={{ ...S.toggleBtn, ...(mode === "spectate" ? S.toggleBtnSel : {}) }}
               onClick={() => setMode("spectate")}
-              title="只看 AI 互相博弈，你可以押注谁是卧底"
+              title={t("modeSpectateTip")}
             >
-              👀 纯观战
+              {t("modeSpectate")}
             </button>
             <button
               style={{ ...S.toggleBtn, ...(mode === "play" ? S.toggleBtnSel : {}) }}
               onClick={() => setMode("play")}
-              title="你入座同桌，和 AI 一起玩"
+              title={t("modePlayTip")}
             >
-              🧑 我也玩
+              {t("modePlay")}
             </button>
             <button
               style={{ ...S.toggleBtn, ...(mode === "masterclass" ? S.toggleBtnSel : {}) }}
               onClick={() => setMode("masterclass")}
-              title="你上场，全程有教练点拨 + 显示每个 AI 的💭推理，帮你精进技术"
+              title={t("modeMasterclassTip")}
             >
-              🎓 大师课
+              {t("modeMasterclass")}
             </button>
           </div>
         </div>
 
         <div style={S.field}>
-          <span style={S.fieldLabel}>AI 玩家</span>
-          <span style={{ ...S.stepVal, paddingTop: 4 }}>{aiCount} 个</span>
+          <span style={S.fieldLabel}>{t("aiPlayers")}</span>
+          <span style={{ ...S.stepVal, paddingTop: 4 }}>{t("aiCountValue", { n: aiCount })}</span>
         </div>
 
         <div style={S.field}>
-          <span style={S.fieldLabel}>白板角色</span>
+          <span style={S.fieldLabel}>{t("blank")}</span>
           <div style={S.toggle}>
             <button
               style={{ ...S.toggleBtn, ...(blankOn ? S.toggleBtnSel : {}), opacity: blankAllowed ? 1 : 0.5 }}
               onClick={() => blankAllowed && setBlankEnabled((v) => !v)}
-              title="加入 1 名白板：没有词，要靠听别人描述蒙混过关"
+              title={t("blankTip")}
               disabled={!blankAllowed}
             >
-              {blankOn ? "🃏 已加入" : "关闭"}
+              {blankOn ? t("blankOn") : t("off")}
             </button>
           </div>
         </div>
 
         <div style={S.field}>
-          <span style={S.fieldLabel}>开发者模式</span>
+          <span style={S.fieldLabel}>{t("devMode")}</span>
           <div style={S.toggle}>
             <button
               style={{ ...S.toggleBtn, ...(devMode ? S.toggleBtnSel : {}) }}
               onClick={() => setDevMode((v) => !v)}
-              title="每句发言后，所有 AI 实时更新对每个人的卧底嫌疑分(调用量较大)"
+              title={t("devModeTip")}
             >
-              {devMode ? "🔬 已开启" : "关闭"}
+              {devMode ? t("devModeOn") : t("off")}
             </button>
           </div>
         </div>
 
         <div style={S.field}>
-          <span style={S.fieldLabel}>高级设置</span>
+          <span style={S.fieldLabel}>{t("advanced")}</span>
           <div style={S.toggle}>
             <button
               style={{ ...S.toggleBtn, ...(advanced ? S.toggleBtnSel : {}) }}
               onClick={() => setAdvanced((v) => !v)}
-              title="逐个调每个 AI 角色的名字/性格/思维方式/模型/初始素质"
+              title={t("advancedTip")}
             >
-              {advanced ? "⚙️ 已展开" : "关闭"}
+              {advanced ? t("advancedOn") : t("off")}
             </button>
           </div>
         </div>
@@ -254,25 +251,25 @@ export default function Setup({ onStart }: { onStart: (c: GameConfig) => void })
 
       {advanced && (
         <div style={{ marginBottom: 16 }}>
-          <span style={{ ...S.fieldLabel, display: "block", marginBottom: 8 }}>每个 AI 角色(共 {aiCount} 个)</span>
+          <span style={{ ...S.fieldLabel, display: "block", marginBottom: 8 }}>{t("advancedSlots", { n: aiCount })}</span>
           <AISlotEditor slots={slots.slice(0, aiCount)} onChange={setSlots} />
         </div>
       )}
 
       <div style={{ ...S.fieldRow, marginBottom: 10 }}>
         <div style={S.field}>
-          <span style={S.fieldLabel}>主题</span>
+          <span style={S.fieldLabel}>{t("theme")}</span>
           <select style={sel} value={theme ?? ""} onChange={(e) => setTheme(e.target.value || null)}>
-            <option value="">任意主题</option>
-            {THEMES.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            <option value="">{t("anyTheme")}</option>
+            {THEMES.map((th) => (
+              <option key={th} value={th}>
+                {th}
               </option>
             ))}
           </select>
         </div>
         <div style={S.field}>
-          <span style={S.fieldLabel}>难度</span>
+          <span style={S.fieldLabel}>{t("difficulty")}</span>
           <select
             style={sel}
             value={difficulty == null ? "" : String(difficulty)}
@@ -280,22 +277,17 @@ export default function Setup({ onStart }: { onStart: (c: GameConfig) => void })
           >
             {DIFFICULTY_OPTIONS.map((d) => (
               <option key={d.value} value={d.value}>
-                {d.label}
+                {t(d.key)}
               </option>
             ))}
           </select>
         </div>
       </div>
 
-      <span style={{ ...S.fieldLabel, display: "block", marginBottom: 8 }}>
-        选一组词（{pairs.length} 组可选）
-      </span>
+      <span style={{ ...S.fieldLabel, display: "block", marginBottom: 8 }}>{t("pickWord", { count: pairs.length })}</span>
       <div style={S.pairGrid}>
-        <button
-          onClick={() => setWordPairId(null)}
-          style={{ ...S.pairBtn, ...(wordPairId === null ? S.pairBtnSel : {}) }}
-        >
-          🎲 随机一组
+        <button onClick={() => setWordPairId(null)} style={{ ...S.pairBtn, ...(wordPairId === null ? S.pairBtnSel : {}) }}>
+          {t("randomPair")}
         </button>
         {pairs.map((w) => (
           <button
@@ -309,7 +301,7 @@ export default function Setup({ onStart }: { onStart: (c: GameConfig) => void })
       </div>
 
       <button onClick={start} style={S.startBtn}>
-        {mode === "masterclass" ? "进入大师课 →" : "入座开局 →"}
+        {mode === "masterclass" ? t("startMasterclass") : t("startGame")}
       </button>
     </div>
   );
