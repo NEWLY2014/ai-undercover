@@ -52,11 +52,11 @@ const SYSTEM =
 type JsonSchema = Record<string, unknown>;
 
 type AgentRequest =
-  | { kind: "describe"; payload: DescribePayload; model?: string }
-  | { kind: "vote"; payload: VotePayload; model?: string }
-  | { kind: "suspect"; payload: SuspectPayload; model?: string }
-  | { kind: "reflect"; payload: ReflectPayload; model?: string }
-  | { kind: "spyGuess"; payload: SpyGuessPayload; model?: string };
+  | { kind: "describe"; payload: DescribePayload; model?: string; gameId?: string }
+  | { kind: "vote"; payload: VotePayload; model?: string; gameId?: string }
+  | { kind: "suspect"; payload: SuspectPayload; model?: string; gameId?: string }
+  | { kind: "reflect"; payload: ReflectPayload; model?: string; gameId?: string }
+  | { kind: "spyGuess"; payload: SpyGuessPayload; model?: string; gameId?: string };
 
 // One JSON schema per kind. tool_choice (Anthropic) / format (Ollama) force the
 // model to return exactly this shape. The `vote`/`name` enums make "must be a
@@ -344,6 +344,7 @@ export async function POST(req: NextRequest) {
   // Identity bits for the backend log (who/what — pure observation).
   const agentName = (body.payload as { name?: string })?.name;
   const round = (body.payload as { round?: number })?.round;
+  const gameId = typeof body.gameId === "string" ? body.gameId.slice(0, 64) : undefined;
   const startedAt = Date.now();
   let usedModel = "";
 
@@ -383,6 +384,7 @@ export async function POST(req: NextRequest) {
       kind: body.kind,
       agent: agentName,
       round,
+      gameId,
       provider: PROVIDER,
       model: usedModel,
       ms: Date.now() - startedAt,
@@ -400,6 +402,7 @@ export async function POST(req: NextRequest) {
       kind: body.kind,
       agent: agentName,
       round,
+      gameId,
       provider: PROVIDER,
       model: usedModel,
       ms: Date.now() - startedAt,

@@ -1,6 +1,7 @@
 import { readdir, readFile } from "fs/promises";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
+import { fxRate, usdCost, usdToCny } from "@/lib/pricing";
 
 // Reads the JSONL backend logs (written by src/lib/serverLog.ts) and returns
 // aggregated metrics for the /dashboard page. Read-only: it never feeds back into
@@ -195,6 +196,80 @@ export async function GET(req: NextRequest) {
     spyRound1Rate: spyElims.length ? +((spyElimR1.length / spyElims.length) * 100).toFixed(1) : 0,
   };
 
+  // ── cost per game ───────────────────────────────────────────────────────
+  // agent_calls now carry gameId, so token spend can be grouped per game and
+  // priced; game_start gives each game's mode/devMode. Read-only — never feeds gameplay.
+  const gameMode = new Map<string, { mode: string; devMode: boolean }>();
+  for (const r of records) {
+    if (r.type !== "client:game_start") continue;
+    const gid = typeof r.gameId === "string" ? r.gameId : "";
+    if (!gid) continue;
+    const p = props(r);
+    gameMode.set(gid, { mode: p.tutorial ? "masterclass" : p.hasHuman ? "play" : "spectate", devMode: !!p.devMode });
+  }
+
+  const perGame = new Map<string, { tokens: number; usd: number }>();
+  let ungroupedCalls = 0;
+  for (const r of calls) {
+    const gid = typeof r.gameId === "string" ? r.gameId : "";
+    if (!gid) {
+      ungroupedCalls++;
+      continue;
+    }
+    const inT = num(r.inputTokens);
+    const outT = num(r.outputTokens);
+    const g = perGame.get(gid) ?? { tokens: 0, usd: 0 };
+    g.tokens += inT + outT;
+    g.usd += usdCost(inT, outT, typeof r.model === "string" ? r.model : undefined);
+    perGame.set(gid, g);
+  }
+
+  const gameCosts = [...perGame.entries()];
+  const usdSorted = gameCosts.map(([, g]) => g.usd).sort((a, b) => a - b);
+  const avgUsd = usdSorted.length ? usdSorted.reduce((a, b) => a + b, 0) / usdSorted.length : 0;
+  const avgTokens = gameCosts.length ? Math.round(gameCosts.reduce((s, [, g]) => s + g.tokens, 0) / gameCosts.length) : 0;
+
+  const costByModeMap = new Map<string, number[]>();
+  for (const [gid, g] of gameCosts) {
+    const mode = gameMode.get(gid)?.mode ?? "unknown";
+    const arr = costByModeMap.get(mode) ?? [];
+    arr.push(g.usd);
+    costByModeMap.set(mode, arr);
+  }
+  const costByMode = [...costByModeMap.entries()].map(([name, arr]) => ({
+    name,
+    games: arr.length,
+    avgUsd: +(arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(5),
+  }));
+
+  const devArr: number[] = [];
+  const nonDevArr: number[] = [];
+  for (const [gid, g] of gameCosts) (gameMode.get(gid)?.devMode ? devArr : nonDevArr).push(g.usd);
+  const mean = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+
+  // Global fallback estimate for logs predating gameId enrichment.
+  const primaryModel = agentCalls.byModel[0]?.name;
+  const globalUsd = usdCost(agentCalls.inputTokens, agentCalls.outputTokens, primaryModel);
+  const fallbackPerGameUsd = overs.length ? globalUsd / overs.length : 0;
+
+  const cost = {
+    measuredGames: gameCosts.length,
+    ungroupedCalls,
+    avgUsd: +avgUsd.toFixed(5),
+    p50Usd: +percentile(usdSorted, 50).toFixed(5),
+    p95Usd: +percentile(usdSorted, 95).toFixed(5),
+    avgCny: +usdToCny(avgUsd).toFixed(4),
+    avgTokens,
+    fxRate: fxRate(),
+    primaryModel: primaryModel ?? null,
+    byMode: costByMode,
+    devGames: devArr.length,
+    devAvgUsd: +mean(devArr).toFixed(5),
+    nonDevGames: nonDevArr.length,
+    nonDevAvgUsd: +mean(nonDevArr).toFixed(5),
+    fallbackPerGameUsd: +fallbackPerGameUsd.toFixed(5),
+  };
+
   // ── raw events (most recent first, capped) ──────────────────────────────
   const events = [...records].sort((a, b) => String(b.ts ?? "").localeCompare(String(a.ts ?? ""))).slice(0, EVENT_CAP);
 
@@ -204,6 +279,7 @@ export async function GET(req: NextRequest) {
     totalRecords: records.length,
     agentCalls,
     games,
+    cost,
     events,
     truncated: records.length > EVENT_CAP,
     eventCap: EVENT_CAP,

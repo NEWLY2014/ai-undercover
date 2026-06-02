@@ -1,6 +1,7 @@
 // Client-side wrapper around the /api/agent backend proxy. The browser never
 // sees the Anthropic key — it only talks to our own route.
 import type { DescribePayload, ReflectPayload, SpyGuessPayload, SuspectPayload, VotePayload } from "@/game/prompts";
+import { getGameId } from "@/lib/telemetry";
 
 export interface DescribeResult {
   reasoning: string;
@@ -33,7 +34,9 @@ async function callAgent<T>(
   const res = await fetch("/api/agent", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ kind, payload, model }),
+    // gameId ties this call's cost (tokens) back to a specific game for the
+    // cost-per-game dashboard. It's just an opaque id, never used in game logic.
+    body: JSON.stringify({ kind, payload, model, gameId: getGameId() }),
   });
   const data = await res.json();
   if (!res.ok) {
