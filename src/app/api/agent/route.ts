@@ -277,14 +277,59 @@ async function runOllama(spec: { schema: JsonSchema }, prompt: string, model: st
   }
 }
 
+// Reasoning models (MiniMax-M2, doubao-seed) wrap their chain-of-thought in
+// <think>...</think> INSIDE the content field (they do NOT use a separate
+// reasoning_content in OpenAI-compatible mode). Strip it before extracting the
+// JSON answer. Safe here: we never feed the assistant's output back as history,
+// so dropping <think> can't hurt multi-turn quality. A dangling, unclosed
+// <think> means the reply was truncated mid-reasoning (no answer) → parse fails →
+// the caller retries.
+//   https://platform.minimax.io/docs/guides/text-m2-function-call
+function parseAgentJson(content: string, label: string): unknown {
+  let s = content.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/<think>[\s\S]*$/i, "");
+  s = s.replace(/```json/gi, "").replace(/```/g, "").trim();
+  const tryParse = (x: string): { ok: true; v: unknown } | { ok: false } => {
+    try {
+      return { ok: true, v: JSON.parse(x) };
+    } catch {
+      return { ok: false };
+    }
+  };
+  let r = tryParse(s);
+  if (r.ok) return r.v;
+  const m = s.match(/\{[\s\S]*\}/);
+  const obj = m ? m[0] : s;
+  r = tryParse(obj);
+  if (r.ok) return r.v;
+  // Light repair for common reasoning-model malformations, only after a strict
+  // parse already failed (so it can never corrupt valid JSON):
+  //  - array elements as adjacent groups with no comma ("[a] [b]", "}{");
+  //  - unescaped ASCII double-quotes used for emphasis INSIDE a Chinese string
+  //    (e.g. 用"黄豆"做 or …常见"，). A real JSON string delimiter is always
+  //    adjacent to ASCII structure (:,[]{} or whitespace), never wedged between
+  //    CJK ideographs/fullwidth punctuation, so a quote with CJK context on BOTH
+  //    sides is provably an inner quote — strip it. (CJK class = ideographs +
+  //    CJK/fullwidth punctuation: 　-〿, 一-鿿, ＀-￯.)
+  const cjk = "\\u3000-\\u303f\\u4e00-\\u9fff\\uff00-\\uffef";
+  const innerQuote = new RegExp(`(?<=[${cjk}])"(?=[${cjk}])`, "g");
+  r = tryParse(
+    obj
+      .replace(/\]\s*\[/g, ", ")
+      .replace(/\}\s*\{/g, "}, {")
+      .replace(innerQuote, ""),
+  );
+  if (r.ok) return r.v;
+  throw new Error(`${label} 返回无法解析为 JSON：${(s || content).slice(0, 200)}`);
+}
+
 // Derive a short "only output JSON with these keys" instruction from the schema.
 function jsonShapeHint(schema: JsonSchema, locale: Locale): string {
   const props = (schema as { properties?: Record<string, unknown> }).properties || {};
   const keys = Object.keys(props);
   if (locale === "en") {
-    return `You must output exactly one JSON object (no extra text, explanation, or markdown code block), containing only these fields: ${keys.join(", ")}.`;
+    return `You must output exactly one JSON object (no extra text, explanation, or markdown code block), containing only these fields: ${keys.join(", ")}. The JSON must be strictly valid: do NOT put unescaped double-quotes inside a string value (use single quotes for emphasis, or escape them as \\"); put every array element inside ONE [] separated by commas.`;
   }
-  return `你必须只输出一个 JSON 对象（不要任何额外文字、解释或 markdown 代码块），且只包含这些字段：${keys.join("、")}。`;
+  return `你必须只输出一个 JSON 对象（不要任何额外文字、解释或 markdown 代码块），且只包含这些字段：${keys.join("、")}。必须是严格合法的 JSON：字符串值内部不要使用英文双引号 "（需要强调或引用时改用中文引号「」）；数组的所有元素必须放在同一个 [] 里、用英文逗号分隔。`;
 }
 
 // Volcengine Ark via its OpenAI-compatible /chat/completions. Older doubao
@@ -302,10 +347,10 @@ async function runVolcengine(spec: { schema: JsonSchema }, prompt: string, model
         { role: "user", content: prompt },
       ],
       temperature: 0.9,
-      // doubao-seed is a reasoning model: chain-of-thought consumes tokens before
-      // the JSON content. Give ample headroom so richer prompts never truncate the
-      // content (which would yield an empty clue).
-      max_tokens: 3072,
+      // doubao-seed is a reasoning model: its chain-of-thought consumes tokens
+      // before the JSON answer, so the budget must hold the reasoning AND the
+      // answer or the content truncates (yielding an empty/garbled clue).
+      max_tokens: 16384,
     }),
   });
   const data = (await res.json()) as {
@@ -318,27 +363,16 @@ async function runVolcengine(spec: { schema: JsonSchema }, prompt: string, model
   }
   const usage: Usage = { inputTokens: data?.usage?.prompt_tokens, outputTokens: data?.usage?.completion_tokens };
   const txt = data?.choices?.[0]?.message?.content ?? "";
-  const cleaned = txt.replace(/```json/gi, "").replace(/```/g, "").trim();
-  try {
-    return { result: JSON.parse(cleaned), usage };
-  } catch {
-    const m = cleaned.match(/\{[\s\S]*\}/);
-    if (m) {
-      try {
-        return { result: JSON.parse(m[0]), usage };
-      } catch {
-        /* fall through */
-      }
-    }
-    throw new Error(`Ark 返回无法解析为 JSON：${cleaned.slice(0, 200)}`);
-  }
+  return { result: parseAgentJson(txt, "Ark"), usage };
 }
 
 // MiniMax via its OpenAI-compatible /chat/completions. MiniMax-M2 is a reasoning
-// model (its chain-of-thought goes to a separate reasoning_content), so we parse
-// the JSON out of `content`. The body uses max_completion_tokens (not max_tokens);
-// MiniMax recommends temperature 1.0 / top_p 0.95 for M2.
+// model whose chain-of-thought is wrapped in <think>...</think> INSIDE `content`
+// (no separate reasoning_content), so parseAgentJson strips it before reading the
+// JSON answer. The body uses max_completion_tokens (not max_tokens); MiniMax
+// recommends temperature 1.0 / top_p 0.95 for M2.
 //   docs: https://platform.minimax.io/docs/api-reference/text-chat
+//   thinking format: https://platform.minimax.io/docs/guides/text-m2-function-call
 async function runMinimax(spec: { schema: JsonSchema }, prompt: string, model: string, system: string, locale: Locale): Promise<RunOutput> {
   const res = await fetch(`${MINIMAX_BASE}/chat/completions`, {
     method: "POST",
@@ -351,9 +385,13 @@ async function runMinimax(spec: { schema: JsonSchema }, prompt: string, model: s
       ],
       temperature: 1,
       top_p: 0.95,
-      // M2 emits chain-of-thought before the answer; give headroom so the JSON
-      // content is never truncated by a long reasoning trace.
-      max_completion_tokens: 8192,
+      // M2's <think> reasoning is counted against this budget BEFORE the JSON
+      // answer is emitted. 8192 was far too low — long prompts (reflect/vote with
+      // the full transcript) exhausted it mid-reasoning, truncating before any
+      // JSON (~19% of calls 500'd in load testing). M2 allows up to 200k output;
+      // 32768 comfortably holds the reasoning + the answer. You only pay for the
+      // tokens actually generated, so a high cap costs nothing on short replies.
+      max_completion_tokens: 32768,
     }),
   });
   const data = (await res.json()) as {
@@ -373,20 +411,7 @@ async function runMinimax(spec: { schema: JsonSchema }, prompt: string, model: s
   }
   const usage: Usage = { inputTokens: data?.usage?.prompt_tokens, outputTokens: data?.usage?.completion_tokens };
   const txt = data?.choices?.[0]?.message?.content ?? "";
-  const cleaned = txt.replace(/```json/gi, "").replace(/```/g, "").trim();
-  try {
-    return { result: JSON.parse(cleaned), usage };
-  } catch {
-    const m = cleaned.match(/\{[\s\S]*\}/);
-    if (m) {
-      try {
-        return { result: JSON.parse(m[0]), usage };
-      } catch {
-        /* fall through */
-      }
-    }
-    throw new Error(`MiniMax 返回无法解析为 JSON：${cleaned.slice(0, 200)}`);
-  }
+  return { result: parseAgentJson(txt, "MiniMax"), usage };
 }
 
 // Abuse guards: bound the request body and the long prompt-feeding fields BEFORE
