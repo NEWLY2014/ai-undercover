@@ -124,17 +124,17 @@ function vaguenessTip(round: number, locale: Locale, position?: number): string 
       return "You speak early with no clues to borrow. Aim for one perfect shot: a clever, indirect clue (allusion / homophone / scene / pun) that both hides your identity and plants a hint only the in-crowd will catch. Don't say \"a kind of X\", and don't drop a detail that pins you.";
     }
     if (round === 1) {
-      return "Others have already spoken. Don't simply repeat them or out-vague them: build on (or riff off) their lines, take a fresh angle, and give a clue that's true for this kind of thing yet clever and unrevealing.";
+      return "Others have already spoken — read the table. IMPORTANT: if the earlier clues have ALREADY made the word easy to guess, do NOT add one more detail that nails it down. If the undercover gets voted out, they read the word straight off the board and steal the win with their last-chance guess — so don't be the one who completes the picture. Build on (or riff off) the others, but take a HAZIER, more oblique angle: true for this kind of thing, yet not locking the word in.";
     }
-    return "From round two on you can be a touch more concrete to build trust, but still play \"clever and unrevealing\" — never blurt the key trait.";
+    return "From round two on, read what's already on the table first. If the word is already well established (an outsider could now guess it), go the OTHER way — be vaguer and more oblique, drop a small smokescreen, and never add the detail that confirms it (that's what hands a caught undercover the word). Only if the word is still genuinely unclear should you firm up slightly to build trust. Never blurt the key trait.";
   }
   if (round === 1 && (position == null || position <= 1)) {
     return "你很早发言、没线索可借。争取【一发入魂】：给一个巧妙、间接的描述(用典/谐音/场景/双关皆可)，既藏住身份、又埋下只有懂的人能品到的指向。别用“一种X”这种干巴定义，也别报能直接锁定的细节。";
   }
   if (round === 1) {
-    return "前面有人发言了。别简单重复、也别比他们更空洞：承接或现挂他们的话，另起一个新角度，给一个对这类事物成立、却又巧而不露的描述。";
+    return "前面有人发言了，先看桌面。【关键】如果前面几句已经把这个词描得八九不离十（外人都能猜出来了），你就别再补一刀、添一个让词更坐实的特征——否则万一卧底被票出去，他照着这些描述就能猜中词、反杀翻盘，别当那个把词描全的人。承接或现挂他们的话，但【另起一个更虚、更绕的角度】，对这类事物成立、却不帮着把词锁死。";
   }
-  return "第二轮往后，可以比第一轮稍微具体一点来建立信任，但仍走“巧而不露”的路子，绝不直白报出关键特征。";
+  return "第二轮往后，先看看桌面上已有的描述。如果这个词已经被描得很清楚了（外人都能猜出来），就【反过来更绕、更虚】，放个小烟雾弹，绝不再添那个把词坐实的特征（那等于把词亲手送给被票出的卧底）；只有当这个词还真没被点破时，才可以稍微具体一点来建立信任。绝不直白报出关键特征。";
 }
 
 export interface DescribePayload extends AgentContext {

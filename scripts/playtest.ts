@@ -22,7 +22,7 @@ import {
   tallyVotes,
   transcriptLine,
 } from "../src/game/engine";
-import { PERSONAS } from "../src/game/personas";
+import { personasFor } from "../src/game/personas";
 import { filterWordPairs, getWordPair } from "../src/game/words";
 import type { AgentProfile, Player } from "../src/game/types";
 
@@ -140,7 +140,7 @@ async function playGame(cfg: GameConfig, gameId: string): Promise<void> {
   stats.games++;
   const pair = getWordPair(cfg.wordPairId, { theme: cfg.theme, difficulty: cfg.difficulty }, cfg.locale);
   const aiCount = cfg.totalPlayers;
-  const profiles: Array<AgentProfile & { kind: "ai" | "human" }> = PERSONAS.slice(0, aiCount).map((p) => ({ ...p, kind: "ai" as const }));
+  const profiles: Array<AgentProfile & { kind: "ai" | "human" }> = personasFor(cfg.locale).slice(0, aiCount).map((p) => ({ ...p, kind: "ai" as const }));
   const spyIndices = pickSpyIndices(profiles.length, cfg.spyCount);
   const blankIndex = cfg.blankEnabled ? pickBlankIndex(profiles.length, spyIndices) : -1;
   const players = buildPlayers(profiles, pair, spyIndices, blankIndex);
