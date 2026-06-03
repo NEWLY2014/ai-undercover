@@ -13,10 +13,40 @@ import { Link } from "@/i18n/navigation";
 import { recordGame } from "@/lib/stats";
 import { useGameLoop } from "@/store/useGameLoop";
 
+// The masterclass rules intro is shown only on a user's first entry. We persist
+// the flag in localStorage so it sticks across tabs/sessions (unlike the
+// per-session setup prefs).
+const INTRO_SEEN_KEY = "undercover:seenMasterclassIntro";
+function hasSeenIntro(): boolean {
+  try {
+    return typeof window !== "undefined" && window.localStorage.getItem(INTRO_SEEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function markIntroSeen(): void {
+  try {
+    window.localStorage.setItem(INTRO_SEEN_KEY, "1");
+  } catch {
+    /* non-fatal */
+  }
+}
+
 export default function Home() {
   const g = useGameLoop();
   const t = useTranslations("Play");
   const locale = useLocale() as "zh" | "en";
+  // Developer mode is admin-only: unlocked only with ?dev=1, never a casual toggle.
+  // Read from the URL after mount (matches the dashboard's pattern; avoids the
+  // useSearchParams Suspense requirement).
+  const [devUnlocked, setDevUnlocked] = useState(false);
+  useEffect(() => {
+    try {
+      setDevUnlocked(new URL(window.location.href).searchParams.get("dev") === "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const [guess, setGuess] = useState<number | null>(null);
   const [statsVersion, setStatsVersion] = useState(0);
   const [tutorialIntro, setTutorialIntro] = useState(false);
@@ -24,9 +54,11 @@ export default function Home() {
   const [pendingConfig, setPendingConfig] = useState<GameConfig | null>(null);
   const recordedRef = useRef(false);
 
-  // Record the finished game exactly once (when a winner is first decided).
+  // Record the finished game exactly once (when a winner is first decided). Reset
+  // the guard whenever there's no winner yet — covers a fresh setup AND "play
+  // again" (which jumps straight back into a new game without visiting setup).
   useEffect(() => {
-    if (g.phase === "setup") {
+    if (g.winner == null) {
       recordedRef.current = false;
       return;
     }
@@ -65,6 +97,7 @@ export default function Home() {
           tutorialIntro ? (
             <TutorialIntro
               onStart={() => {
+                markIntroSeen();
                 if (pendingConfig) g.startGame(pendingConfig);
                 setTutorialIntro(false);
                 setPendingConfig(null);
@@ -77,12 +110,14 @@ export default function Home() {
           ) : (
             <>
               <Setup
+                devUnlocked={devUnlocked}
                 onStart={(c) => {
                   setGuess(null);
                   // Carry the UI locale into the game so content can be localized.
                   const config = { ...c, locale };
-                  // Masterclass shows the (skippable) rules intro first, then starts.
-                  if (config.tutorial) {
+                  // Masterclass shows the (skippable) rules intro — but only on the
+                  // user's first entry; afterwards it starts straight away.
+                  if (config.tutorial && !hasSeenIntro()) {
                     setPendingConfig(config);
                     setTutorialIntro(true);
                   } else {
@@ -107,6 +142,8 @@ export default function Home() {
             humanTurn={g.humanTurn}
             devMode={g.devMode}
             tutorial={g.tutorial}
+            coachTip={g.coachTip}
+            coachLoading={g.coachLoading}
             suspicion={g.suspicion}
             suspecting={g.suspecting}
             order={g.order}
@@ -116,6 +153,10 @@ export default function Home() {
             onVote={g.runVote}
             onNext={g.nextRound}
             onRestart={g.restart}
+            onPlayAgain={() => {
+              setGuess(null);
+              g.playAgain();
+            }}
             onSubmitHuman={g.submitHuman}
           />
         )}

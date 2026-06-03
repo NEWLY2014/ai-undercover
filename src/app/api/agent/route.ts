@@ -2,11 +2,13 @@ import Anthropic from "@anthropic-ai/sdk";
 import { Ollama } from "ollama";
 import { NextRequest, NextResponse } from "next/server";
 import {
+  buildCoachPrompt,
   buildDescribePrompt,
   buildReflectPrompt,
   buildSpyGuessPrompt,
   buildSuspectPrompt,
   buildVotePrompt,
+  type CoachPayload,
   type DescribePayload,
   type ReflectPayload,
   type SpyGuessPayload,
@@ -70,7 +72,8 @@ type AgentRequest =
   | { kind: "vote"; payload: VotePayload; model?: string; gameId?: string }
   | { kind: "suspect"; payload: SuspectPayload; model?: string; gameId?: string }
   | { kind: "reflect"; payload: ReflectPayload; model?: string; gameId?: string }
-  | { kind: "spyGuess"; payload: SpyGuessPayload; model?: string; gameId?: string };
+  | { kind: "spyGuess"; payload: SpyGuessPayload; model?: string; gameId?: string }
+  | { kind: "coach"; payload: CoachPayload; model?: string; gameId?: string };
 
 // One JSON schema per kind. tool_choice (Anthropic) / format (Ollama) force the
 // model to return exactly this shape. The `vote`/`name` enums make "must be a
@@ -98,6 +101,10 @@ const SCHEMA_TEXT = {
   suspect: {
     zh: { tool: "给出你此刻对每个在场对手是卧底的怀疑分。", reasoning: "一句话整体看法。", suspicions: "对每个对手的怀疑分。", score: "0-100 的怀疑分。" },
     en: { tool: "Give your current 0-100 suspicion score for each remaining opponent.", reasoning: "A one-sentence overall view.", suspicions: "A suspicion score for each opponent.", score: "A 0-100 suspicion score." },
+  },
+  coach: {
+    zh: { tool: "给学员一句实战指点。", tip: "2-4 句具体、实战、有人味的指点。" },
+    en: { tool: "Give the student one piece of tactical coaching.", tip: "2-4 sentences of specific, tactical, human coaching." },
   },
 } as const;
 
@@ -150,6 +157,21 @@ function buildSchema(body: AgentRequest, locale: Locale): { name: string; descri
           guess: { type: "string", description: T.guess },
         },
         required: ["reasoning", "guess"],
+        additionalProperties: false,
+      },
+    };
+  }
+  if (body.kind === "coach") {
+    const T = SCHEMA_TEXT.coach[locale];
+    return {
+      name: "submit_coaching",
+      description: T.tool,
+      schema: {
+        type: "object",
+        properties: {
+          tip: { type: "string", description: T.tip },
+        },
+        required: ["tip"],
         additionalProperties: false,
       },
     };
@@ -424,7 +446,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "请求体不是合法 JSON。" }, { status: 400 });
   }
-  if (!["describe", "vote", "suspect", "reflect", "spyGuess"].includes(body.kind)) {
+  if (!["describe", "vote", "suspect", "reflect", "spyGuess", "coach"].includes(body.kind)) {
     return NextResponse.json({ error: `未知的 kind: ${(body as { kind?: string }).kind}` }, { status: 400 });
   }
   const capErr = payloadCapError(body);
@@ -444,7 +466,9 @@ export async function POST(req: NextRequest) {
           ? buildSuspectPrompt(body.payload)
           : body.kind === "spyGuess"
             ? buildSpyGuessPrompt(body.payload)
-            : buildReflectPrompt(body.payload);
+            : body.kind === "coach"
+              ? buildCoachPrompt(body.payload)
+              : buildReflectPrompt(body.payload);
 
   // Identity bits for the backend log (who/what — pure observation).
   const agentName = (body.payload as { name?: string })?.name;

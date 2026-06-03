@@ -164,13 +164,42 @@ export function TutorialCoach({
   humanTurn,
   winner,
   players,
+  coachTip,
+  coachLoading,
 }: {
   phase: Phase;
   humanTurn: HumanTurn | null;
   winner: Winner;
   players: Player[];
+  coachTip: string | null;
+  coachLoading: boolean;
 }) {
   const t = useTranslations("Tutorial");
+
+  // On the human's actual decision (describe / vote), show the LLM coach's
+  // board-specific advice. While it's loading, say so; if it failed, fall back to
+  // the static hint for that decision so the box is never empty.
+  const decision = humanTurn?.kind === "describe" || humanTurn?.kind === "vote" ? humanTurn.kind : null;
+  if (decision) {
+    const title = decision === "describe" ? t("hintDescribeTitle") : t("hintVoteTitle");
+    const fallback =
+      decision === "describe"
+        ? t("hintDescribeBody", { word: humanTurn!.player.word })
+        : t("hintVoteBody");
+    const body = coachLoading && !coachTip ? t("coachThinking") : coachTip ?? fallback;
+    return (
+      <div style={coachWrap}>
+        <span style={{ fontSize: 26, lineHeight: 1 }}>🧑‍🏫</span>
+        <div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--amber)", marginBottom: 3 }}>
+            {t("coachLabel")} · {title}
+          </div>
+          <div style={{ fontSize: 13.5, color: "var(--ink)", lineHeight: 1.6 }}>{body}</div>
+        </div>
+      </div>
+    );
+  }
+
   const hint = hintFor(phase, humanTurn, winner, players);
   if (!hint) return null;
   return (
