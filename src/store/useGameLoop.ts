@@ -162,7 +162,7 @@ export function useGameLoop() {
 
   // ── Start a game ────────────────────────────────────────────────────────
   const startGame = useCallback((config: GameConfig) => {
-    const pairChosen = getWordPair(config.wordPairId, { theme: config.theme, difficulty: config.difficulty });
+    const pairChosen = getWordPair(config.wordPairId, { theme: config.theme, difficulty: config.difficulty }, config.locale ?? "zh");
     const aiCount = config.totalPlayers - config.humanPlayers;
     // Advanced settings supply per-seat AgentProfiles; otherwise use PERSONAS defaults.
     const aiSource =

@@ -1,13 +1,13 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { S } from "@/app/styles";
 import AISlotEditor, { defaultSlots } from "@/components/AISlotEditor";
 import { maxSpyCount } from "@/game/engine";
 import { PERSONAS } from "@/game/personas";
-import { THEMES, filterWordPairs } from "@/game/words";
+import { filterWordPairs, themesFor } from "@/game/words";
 import type { AgentProfile, GameConfig } from "@/game/types";
 
 const MIN_PLAYERS = 3;
@@ -72,6 +72,7 @@ function saveSetupPrefs(p: SetupPrefs): void {
 
 export default function Setup({ onStart }: { onStart: (c: GameConfig) => void }) {
   const t = useTranslations("Setup");
+  const locale = useLocale() as "zh" | "en";
   const [total, setTotal] = useState(5);
   // Three game modes. "masterclass" = you play WITH coaching: forces
   // humanPlayers=1 and sets tutorial=true (hints + AI reasoning shown).
@@ -103,12 +104,14 @@ export default function Setup({ onStart }: { onStart: (c: GameConfig) => void })
     setSpyCount((s) => Math.max(1, Math.min(s, maxSpyCount(total))));
   }, [total]);
 
-  const pairs = filterWordPairs({ theme, difficulty });
-  // If the chosen word no longer matches the filter, fall back to random.
+  const pairs = filterWordPairs({ theme, difficulty }, locale);
+  // If the chosen word / theme no longer matches the current locale + filter, fall
+  // back (e.g. after switching language with a saved setup from the other locale).
   useEffect(() => {
+    if (theme && !themesFor(locale).includes(theme)) setTheme(null);
     if (wordPairId && !pairs.some((p) => p.id === wordPairId)) setWordPairId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [theme, difficulty]);
+  }, [theme, difficulty, locale]);
 
   // Restore the last-used setup once after mount (defaults first → effect updates,
   // matching StatsPanel's pattern, so server/client first paint agree).
@@ -261,7 +264,7 @@ export default function Setup({ onStart }: { onStart: (c: GameConfig) => void })
           <span style={S.fieldLabel}>{t("theme")}</span>
           <select style={sel} value={theme ?? ""} onChange={(e) => setTheme(e.target.value || null)}>
             <option value="">{t("anyTheme")}</option>
-            {THEMES.map((th) => (
+            {themesFor(locale).map((th) => (
               <option key={th} value={th}>
                 {th}
               </option>
