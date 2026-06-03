@@ -139,7 +139,10 @@ export default function Dashboard() {
     const headers: Record<string, string> = authKey ? { "x-dashboard-key": authKey } : {};
     fetch(`/api/dashboard${q}`, { headers })
       .then(async (r) => {
-        if (r.status === 401) {
+        // 401 = wrong/missing key; 404 = dashboard disabled (no DASHBOARD_KEY set).
+        // Either way the admin-gated data isn't available — show the key gate, never
+        // a broken page, and never any data.
+        if (!r.ok) {
           if (!cancelled) {
             setNeedKey(true);
             setLoading(false);

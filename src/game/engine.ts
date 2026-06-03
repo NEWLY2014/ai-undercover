@@ -94,7 +94,12 @@ export function isDuplicateClue(clue: string, priorClues: string[]): boolean {
 }
 export function isLazyClue(clue: string): boolean {
   const t = clue.trim();
-  return /^同上|和(上面|前面|楼上|他|她|大家|你们).{0,4}一样|跟.{0,4}一样|一模一样|和.{0,5}说的一样|^\+1$|^附议|^同意$/.test(t);
+  if (/^同上|和(上面|前面|楼上|他|她|大家|你们).{0,4}一样|跟.{0,4}一样|一模一样|和.{0,5}说的一样|^\+1$|^附议|^同意$/.test(t)) {
+    return true;
+  }
+  // English filler / echo phrases — a structural reject (re-ask the same agent),
+  // never deciding content for it.
+  return /^(same(\s+(as|here))?|ditto|likewise|agreed?|me too|as (above|said)|what .{0,12} said|\+1)\b/i.test(t);
 }
 
 export function speakingOrder(players: Player[]): number[] {
@@ -142,14 +147,28 @@ export function checkWinner(players: Player[]): Winner {
   return null;
 }
 
+// One transcript line, in the game's language. Shared by publicTranscript and
+// the mid-round/PK pushes in useGameLoop so the format the agents read is
+// consistent (and English in an /en game).
+export function transcriptLine(
+  round: number,
+  name: string,
+  clue: string,
+  locale: "zh" | "en" = "zh",
+  pk = false,
+): string {
+  if (locale === "en") return `[Round ${round}${pk ? " · runoff" : ""}] ${name}: ${clue}`;
+  return `【第${round}轮${pk ? "·PK" : ""}】${name}：${clue}`;
+}
+
 // Build the public transcript (clues only — never private reasoning) for prompts.
-export function publicTranscript(players: Player[]): string {
+export function publicTranscript(players: Player[], locale: "zh" | "en" = "zh"): string {
   // Reconstructed from each player's clue list, round by round.
   const maxRounds = Math.max(0, ...players.map((p) => p.clues.length));
   const lines: string[] = [];
   for (let r = 0; r < maxRounds; r++) {
     for (const p of players) {
-      if (p.clues[r] != null) lines.push(`【第${r + 1}轮】${p.name}：${p.clues[r]}`);
+      if (p.clues[r] != null) lines.push(transcriptLine(r + 1, p.name, p.clues[r], locale));
     }
   }
   return lines.join("\n");

@@ -52,8 +52,16 @@ const MINIMAX_KEY = process.env.MINIMAX_API_KEY || "";
 const MINIMAX_BASE = process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1";
 const MINIMAX_MODEL = process.env.MINIMAX_MODEL || "MiniMax-M2";
 
-const SYSTEM =
-  "你是一个正在玩“谁是卧底”社交推理游戏的玩家智能体。只输出符合给定 JSON 结构的内容，不要输出结构之外的任何文字。";
+type Locale = "zh" | "en";
+const SYSTEM: Record<Locale, string> = {
+  zh: "你是一个正在玩“谁是卧底”社交推理游戏的玩家智能体。只输出符合给定 JSON 结构的内容，不要输出结构之外的任何文字。",
+  en: 'You are a player-agent in the social-deduction word game "Who\'s the Undercover." Think and write in English. Output only content matching the given JSON structure — no text outside that structure.',
+};
+// The game's language travels in the payload; default to zh for older clients.
+function localeOf(body: AgentRequest): Locale {
+  const l = (body.payload as { locale?: string } | undefined)?.locale;
+  return l === "en" ? "en" : "zh";
+}
 
 type JsonSchema = Record<string, unknown>;
 
@@ -68,17 +76,43 @@ type AgentRequest =
 // model to return exactly this shape. The `vote`/`name` enums make "must be a
 // real in-play opponent" a STRUCTURAL guarantee — schema validation, not
 // deciding the content for the agent.
-function buildSchema(body: AgentRequest): { name: string; description: string; schema: JsonSchema } {
+// Per-kind, per-locale text for the tool spec + field descriptions. Picking the
+// right language here keeps the model's reasoning/output in the game's language.
+const SCHEMA_TEXT = {
+  describe: {
+    zh: { tool: "提交你这一轮对自己词语的一句话描述。", reasoning: "你的简短内心思考。", clue: "你这一轮的描述，一句话，不超过25字。", memoryUpdate: "更新你的私人笔记(怀疑谁、依据、你是否可能是少数派)，几句话。" },
+    en: { tool: "Submit your one-sentence clue about your own word for this round.", reasoning: "Your brief inner reasoning.", clue: "Your clue this round — one sentence, under ~15 words.", memoryUpdate: "Update your private notes (who you suspect, why, whether you might be the minority), a few sentences." },
+  },
+  vote: {
+    zh: { tool: "投出你认为是卧底的那一票。", reasoning: "你的简短推理。", vote: "你要投的在场玩家名（不能是你自己）。", voteReason: "一句话理由，不超过30字。", memoryUpdate: "更新你的私人笔记，几句话。" },
+    en: { tool: "Cast your vote for whoever you think is the undercover.", reasoning: "Your brief reasoning.", vote: "The in-play player name you're voting for (not yourself).", voteReason: "A one-sentence reason, under ~18 words.", memoryUpdate: "Update your private notes, a few sentences." },
+  },
+  spyGuess: {
+    zh: { tool: "猜出平民拿到的词(反杀)。", reasoning: "你的简短推理。", guess: "你猜的平民词，只写这一个词。" },
+    en: { tool: "Guess the civilians' word for the comeback win.", reasoning: "Your brief reasoning.", guess: "Your guess of the civilians' word — write just that one word." },
+  },
+  reflect: {
+    zh: { tool: "复盘本局，给出可复用的经验教训。", learnings: "1-3 条具体、可复用的经验，每条一句话。" },
+    en: { tool: "Review this game and give reusable lessons.", learnings: "1-3 concrete, reusable lessons, one sentence each." },
+  },
+  suspect: {
+    zh: { tool: "给出你此刻对每个在场对手是卧底的怀疑分。", reasoning: "一句话整体看法。", suspicions: "对每个对手的怀疑分。", score: "0-100 的怀疑分。" },
+    en: { tool: "Give your current 0-100 suspicion score for each remaining opponent.", reasoning: "A one-sentence overall view.", suspicions: "A suspicion score for each opponent.", score: "A 0-100 suspicion score." },
+  },
+} as const;
+
+function buildSchema(body: AgentRequest, locale: Locale): { name: string; description: string; schema: JsonSchema } {
   if (body.kind === "describe") {
+    const T = SCHEMA_TEXT.describe[locale];
     return {
       name: "submit_clue",
-      description: "提交你这一轮对自己词语的一句话描述。",
+      description: T.tool,
       schema: {
         type: "object",
         properties: {
-          reasoning: { type: "string", description: "你的简短内心思考。" },
-          clue: { type: "string", description: "你这一轮的描述，一句话，不超过25字。" },
-          memoryUpdate: { type: "string", description: "更新你的私人笔记(怀疑谁、依据、你是否可能是少数派)，几句话。" },
+          reasoning: { type: "string", description: T.reasoning },
+          clue: { type: "string", description: T.clue },
+          memoryUpdate: { type: "string", description: T.memoryUpdate },
         },
         required: ["reasoning", "clue", "memoryUpdate"],
         additionalProperties: false,
@@ -86,17 +120,18 @@ function buildSchema(body: AgentRequest): { name: string; description: string; s
     };
   }
   if (body.kind === "vote") {
+    const T = SCHEMA_TEXT.vote[locale];
     const others = body.payload.aliveNames.filter((n) => n !== body.payload.name);
     return {
       name: "submit_vote",
-      description: "投出你认为是卧底的那一票。",
+      description: T.tool,
       schema: {
         type: "object",
         properties: {
-          reasoning: { type: "string", description: "你的简短推理。" },
-          vote: { type: "string", enum: others, description: "你要投的在场玩家名（不能是你自己）。" },
-          voteReason: { type: "string", description: "一句话理由，不超过30字。" },
-          memoryUpdate: { type: "string", description: "更新你的私人笔记，几句话。" },
+          reasoning: { type: "string", description: T.reasoning },
+          vote: { type: "string", enum: others, description: T.vote },
+          voteReason: { type: "string", description: T.voteReason },
+          memoryUpdate: { type: "string", description: T.memoryUpdate },
         },
         required: ["reasoning", "vote", "voteReason", "memoryUpdate"],
         additionalProperties: false,
@@ -104,14 +139,15 @@ function buildSchema(body: AgentRequest): { name: string; description: string; s
     };
   }
   if (body.kind === "spyGuess") {
+    const T = SCHEMA_TEXT.spyGuess[locale];
     return {
       name: "submit_guess",
-      description: "猜出平民拿到的词(反杀)。",
+      description: T.tool,
       schema: {
         type: "object",
         properties: {
-          reasoning: { type: "string", description: "你的简短推理。" },
-          guess: { type: "string", description: "你猜的平民词，只写这一个词。" },
+          reasoning: { type: "string", description: T.reasoning },
+          guess: { type: "string", description: T.guess },
         },
         required: ["reasoning", "guess"],
         additionalProperties: false,
@@ -119,15 +155,16 @@ function buildSchema(body: AgentRequest): { name: string; description: string; s
     };
   }
   if (body.kind === "reflect") {
+    const T = SCHEMA_TEXT.reflect[locale];
     return {
       name: "submit_reflection",
-      description: "复盘本局，给出可复用的经验教训。",
+      description: T.tool,
       schema: {
         type: "object",
         properties: {
           learnings: {
             type: "array",
-            description: "1-3 条具体、可复用的经验，每条一句话。",
+            description: T.learnings,
             items: { type: "string" },
           },
         },
@@ -137,22 +174,23 @@ function buildSchema(body: AgentRequest): { name: string; description: string; s
     };
   }
   // suspect
+  const T = SCHEMA_TEXT.suspect[locale];
   const others = body.payload.aliveNames.filter((n) => n !== body.payload.name);
   return {
     name: "submit_suspicion",
-    description: "给出你此刻对每个在场对手是卧底的怀疑分。",
+    description: T.tool,
     schema: {
       type: "object",
       properties: {
-        reasoning: { type: "string", description: "一句话整体看法。" },
+        reasoning: { type: "string", description: T.reasoning },
         suspicions: {
           type: "array",
-          description: "对每个对手的怀疑分。",
+          description: T.suspicions,
           items: {
             type: "object",
             properties: {
               name: { type: "string", enum: others },
-              score: { type: "integer", description: "0-100 的怀疑分。" },
+              score: { type: "integer", description: T.score },
             },
             required: ["name", "score"],
             additionalProperties: false,
@@ -169,12 +207,13 @@ async function runAnthropic(
   spec: { name: string; description: string; schema: JsonSchema },
   prompt: string,
   model: string,
+  system: string,
 ): Promise<RunOutput> {
   const client = new Anthropic();
   const message = await client.messages.create({
     model,
     max_tokens: 1024,
-    system: SYSTEM,
+    system,
     tools: [{ name: spec.name, description: spec.description, input_schema: spec.schema as Anthropic.Tool.InputSchema }],
     tool_choice: { type: "tool", name: spec.name, disable_parallel_tool_use: true },
     messages: [{ role: "user", content: prompt }],
@@ -187,7 +226,7 @@ async function runAnthropic(
   };
 }
 
-async function runOllama(spec: { schema: JsonSchema }, prompt: string, model: string): Promise<RunOutput> {
+async function runOllama(spec: { schema: JsonSchema }, prompt: string, model: string, system: string): Promise<RunOutput> {
   const client = new Ollama({ host: OLLAMA_HOST });
   const res = await client.chat({
     model,
@@ -195,7 +234,7 @@ async function runOllama(spec: { schema: JsonSchema }, prompt: string, model: st
     format: spec.schema as object,
     options: { temperature: 0.8 },
     messages: [
-      { role: "system", content: SYSTEM },
+      { role: "system", content: system },
       { role: "user", content: prompt },
     ],
   });
@@ -217,9 +256,12 @@ async function runOllama(spec: { schema: JsonSchema }, prompt: string, model: st
 }
 
 // Derive a short "only output JSON with these keys" instruction from the schema.
-function jsonShapeHint(schema: JsonSchema): string {
+function jsonShapeHint(schema: JsonSchema, locale: Locale): string {
   const props = (schema as { properties?: Record<string, unknown> }).properties || {};
   const keys = Object.keys(props);
+  if (locale === "en") {
+    return `You must output exactly one JSON object (no extra text, explanation, or markdown code block), containing only these fields: ${keys.join(", ")}.`;
+  }
   return `你必须只输出一个 JSON 对象（不要任何额外文字、解释或 markdown 代码块），且只包含这些字段：${keys.join("、")}。`;
 }
 
@@ -227,14 +269,14 @@ function jsonShapeHint(schema: JsonSchema): string {
 // models may not support response_format, so we don't send it — instead we
 // instruct the exact JSON shape and robustly extract the object from the reply.
 // (vote validity is still enforced downstream by re-asking the agent.)
-async function runVolcengine(spec: { schema: JsonSchema }, prompt: string, model: string): Promise<RunOutput> {
+async function runVolcengine(spec: { schema: JsonSchema }, prompt: string, model: string, system: string, locale: Locale): Promise<RunOutput> {
   const res = await fetch(`${ARK_BASE}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${ARK_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
       messages: [
-        { role: "system", content: `${SYSTEM} ${jsonShapeHint(spec.schema)}` },
+        { role: "system", content: `${system} ${jsonShapeHint(spec.schema, locale)}` },
         { role: "user", content: prompt },
       ],
       temperature: 0.9,
@@ -275,14 +317,14 @@ async function runVolcengine(spec: { schema: JsonSchema }, prompt: string, model
 // the JSON out of `content`. The body uses max_completion_tokens (not max_tokens);
 // MiniMax recommends temperature 1.0 / top_p 0.95 for M2.
 //   docs: https://platform.minimax.io/docs/api-reference/text-chat
-async function runMinimax(spec: { schema: JsonSchema }, prompt: string, model: string): Promise<RunOutput> {
+async function runMinimax(spec: { schema: JsonSchema }, prompt: string, model: string, system: string, locale: Locale): Promise<RunOutput> {
   const res = await fetch(`${MINIMAX_BASE}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${MINIMAX_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
       messages: [
-        { role: "system", content: `${SYSTEM} ${jsonShapeHint(spec.schema)}` },
+        { role: "system", content: `${system} ${jsonShapeHint(spec.schema, locale)}` },
         { role: "user", content: prompt },
       ],
       temperature: 1,
@@ -390,7 +432,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: capErr }, { status: 400 });
   }
 
-  const spec = buildSchema(body);
+  const locale = localeOf(body);
+  const sys = SYSTEM[locale];
+  const spec = buildSchema(body, locale);
   const prompt =
     body.kind === "describe"
       ? buildDescribePrompt(body.payload)
@@ -419,7 +463,7 @@ export async function POST(req: NextRequest) {
         );
       }
       usedModel = body.model || ANTHROPIC_MODEL;
-      out = await runAnthropic(spec, prompt, usedModel);
+      out = await runAnthropic(spec, prompt, usedModel, sys);
     } else if (PROVIDER === "volcengine") {
       if (!ARK_KEY) {
         return NextResponse.json({ error: "服务端 provider=volcengine 但未配置 ARK_API_KEY。" }, { status: 500 });
@@ -433,7 +477,7 @@ export async function POST(req: NextRequest) {
       // Per-agent model overrides are Ollama tags (qwen2.5:*) — ignore them here
       // and use the single configured Ark model/endpoint.
       usedModel = ARK_MODEL;
-      out = await runVolcengine(spec, prompt, ARK_MODEL);
+      out = await runVolcengine(spec, prompt, ARK_MODEL, sys, locale);
     } else if (PROVIDER === "minimax") {
       if (!MINIMAX_KEY) {
         return NextResponse.json({ error: "服务端 provider=minimax 但未配置 MINIMAX_API_KEY。" }, { status: 500 });
@@ -441,10 +485,10 @@ export async function POST(req: NextRequest) {
       // Per-agent model overrides are Ollama tags — ignore them; use the configured
       // MiniMax model (e.g. MiniMax-M2).
       usedModel = MINIMAX_MODEL;
-      out = await runMinimax(spec, prompt, MINIMAX_MODEL);
+      out = await runMinimax(spec, prompt, MINIMAX_MODEL, sys, locale);
     } else {
       usedModel = body.model || OLLAMA_MODEL;
-      out = await runOllama(spec, prompt, usedModel);
+      out = await runOllama(spec, prompt, usedModel, sys);
     }
 
     await logEvent({

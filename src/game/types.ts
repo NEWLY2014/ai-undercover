@@ -71,6 +71,10 @@ export interface Player {
 
   clues: string[]; // this game's clues, in order
   vote: string | null; // who they voted for this round (name)
+  // Which vote stage `vote` belongs to (e.g. "r3" or "r3-pk"). Lets a retried
+  // vote phase resume — already-voted players are skipped, votes from other
+  // stages are cleared — instead of re-asking everyone.
+  lastVoteKey?: string;
   reason: string | null; // their stated reason this round
   lastReasoning?: string | null; // private "inner OS" from this round (surfaced in dev mode)
 

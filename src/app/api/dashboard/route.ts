@@ -4,8 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { fxRate, usdCost, usdToCny } from "@/lib/pricing";
 
 // Reads the JSONL backend logs (written by src/lib/serverLog.ts) and returns
-// aggregated metrics for the /dashboard page. Read-only: it never feeds back into
-// game logic. Unauthenticated — intended for local/LAN self-use.
+// aggregated metrics for the admin /dashboard page. Read-only: it never feeds back
+// into game logic. Admin-only and fail-closed — see the gate in GET below.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -85,15 +85,18 @@ function groupCalls(calls: Rec[], key: string): Grouped[] {
 }
 
 export async function GET(req: NextRequest) {
-  // Admin gate: when DASHBOARD_KEY is set (production) require it via the
-  // x-dashboard-key header or ?key=. Left open when unset so local/LAN dev needs
-  // no key. The full Phase 1 hardening replaces this with real admin auth.
+  // Admin gate (fail-closed): this endpoint exposes raw telemetry + logs, so it is
+  // NEVER served to anonymous users. Access requires the DASHBOARD_KEY admin secret
+  // (via the x-dashboard-key header or ?key=). When DASHBOARD_KEY is unset the
+  // dashboard is DISABLED entirely (404) rather than left open — an admin opts in
+  // by setting the secret. This is the access boundary for the commercial build.
   const adminKey = process.env.DASHBOARD_KEY;
-  if (adminKey) {
-    const provided = req.headers.get("x-dashboard-key") ?? req.nextUrl.searchParams.get("key");
-    if (provided !== adminKey) {
-      return NextResponse.json({ error: "未授权：需要管理员密钥。" }, { status: 401 });
-    }
+  if (!adminKey) {
+    return NextResponse.json({ error: "数据看板未启用（未配置 DASHBOARD_KEY）。" }, { status: 404 });
+  }
+  const provided = req.headers.get("x-dashboard-key") ?? req.nextUrl.searchParams.get("key");
+  if (provided !== adminKey) {
+    return NextResponse.json({ error: "未授权：需要管理员密钥。" }, { status: 401 });
   }
 
   const dates = await listDates();
