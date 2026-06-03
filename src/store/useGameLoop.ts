@@ -15,6 +15,7 @@ import {
   publicTranscript,
   speakingOrder,
   tallyVotes,
+  transcriptLine,
 } from "@/game/engine";
 import { HUMAN_PROFILE, PERSONAS } from "@/game/personas";
 import { getWordPair } from "@/game/words";
@@ -72,6 +73,9 @@ export function useGameLoop() {
   const orderRef = useRef<number[]>([]);
   const roundRef = useRef(1);
   const devModeRef = useRef(false);
+  // The game's language, set once at start; threaded into every agent prompt and
+  // the transcript format so an /en game is played entirely in English.
+  const localeRef = useRef<"zh" | "en">("zh");
   // Resolver that the async loop awaits while the human takes their turn.
   const humanResolver = useRef<((value: string) => void) | null>(null);
 
@@ -110,6 +114,7 @@ export function useGameLoop() {
         try {
           const res = await agentSuspect(
             {
+              locale: localeRef.current,
               name: rater.name,
               trait: rater.trait,
               word: rater.word,
@@ -162,6 +167,7 @@ export function useGameLoop() {
 
   // ── Start a game ────────────────────────────────────────────────────────
   const startGame = useCallback((config: GameConfig) => {
+    localeRef.current = config.locale ?? "zh";
     const pairChosen = getWordPair(config.wordPairId, { theme: config.theme, difficulty: config.difficulty }, config.locale ?? "zh");
     const aiCount = config.totalPlayers - config.humanPlayers;
     // Advanced settings supply per-seat AgentProfiles; otherwise use PERSONAS defaults.
@@ -238,12 +244,17 @@ export function useGameLoop() {
 
     const working = playersRef.current.map((p) => ({ ...p }));
     const speakIds = orderRef.current.filter((id) => working.find((p) => p.id === id)?.alive);
-    const transcript = publicTranscript(working).split("\n").filter(Boolean);
+    const transcript = publicTranscript(working, localeRef.current).split("\n").filter(Boolean);
     const said: string[] = working.flatMap((p) => p.clues); // every clue said so far this game
 
     try {
       for (const id of speakIds) {
         const sp = working.find((p) => p.id === id)!;
+        // Resume, don't redo: if this player already gave a clue for round r
+        // (a prior attempt got this far before failing), skip them. Their clue is
+        // already in `working`/`transcript`. Without this, a retry would re-ask
+        // them AND push a second clue, shifting it into the next round's slot.
+        if (sp.clues.length >= r) continue;
         setSpeakingId(id);
         await sleep(300);
 
@@ -270,11 +281,12 @@ export function useGameLoop() {
         } else {
           // Re-ask the SAME agent up to 3 times if it repeats (allowed: re-asking,
           // not deciding for it). Accept whatever it gives after that.
-          clue = "(……一时语塞)";
+          clue = t("clueStuck");
           for (let attempt = 0; attempt < 3; attempt++) {
             const res = await withRetry(() =>
               agentDescribe(
                 {
+                  locale: localeRef.current,
                   name: sp.name,
                   trait: sp.trait,
                   word: sp.word,
@@ -305,7 +317,7 @@ export function useGameLoop() {
         said.push(clue);
         sp.clues.push(clue);
         sp.lastReasoning = reasoning;
-        transcript.push(`【第${r}轮】${sp.name}：${clue}`);
+        transcript.push(transcriptLine(r, sp.name, clue, localeRef.current));
         sync(working);
         addLog({ type: "clue", id, name: sp.name, emoji: sp.emoji, round: r, text: clue, reasoning });
         track("clue", {
@@ -343,13 +355,14 @@ export function useGameLoop() {
     if (ai.length === 0) return;
     setReflecting(true);
     addLog({ type: "system", text: t("reflecting") });
-    const transcript = publicTranscript(working);
+    const transcript = publicTranscript(working, localeRef.current);
     const results = await Promise.all(
       ai.map(async (p) => {
         const won = (p.isSpy && winner === "spy") || (!p.isSpy && winner === "civ");
         try {
           const res = await agentReflect(
             {
+              locale: localeRef.current,
               name: p.name,
               trait: p.trait,
               word: p.word,
@@ -385,13 +398,21 @@ export function useGameLoop() {
     working: Player[],
     candidateNames: string[],
     allClues: string,
+    voteKey: string,
     humanCandidates?: string[],
   ) => {
-    for (let i = 0; i < working.length; i++) working[i] = { ...working[i], vote: null, reason: null };
+    // Clear only votes that belong to a DIFFERENT stage/round; keep this stage's
+    // already-cast votes so a retried vote phase resumes (and tallyVotes counts
+    // only this stage's votes, since the rest are now null).
+    for (let i = 0; i < working.length; i++) {
+      if (working[i].lastVoteKey !== voteKey) working[i] = { ...working[i], vote: null, reason: null };
+    }
     const alive = aliveOf(working);
     for (const voter of alive) {
       const candidates = candidateNames.filter((n) => n !== voter.name);
       if (candidates.length === 0) continue;
+      // Resume, don't re-ask: this voter already voted in this stage on a prior attempt.
+      if (voter.lastVoteKey === voteKey && voter.vote != null) continue;
       setSpeakingId(voter.id);
       await sleep(280);
 
@@ -402,11 +423,12 @@ export function useGameLoop() {
 
       if (voter.kind === "human") {
         voteName = await waitForHuman("vote", voter, humanCandidates ?? candidateNames);
-        reason = "（你的投票）";
+        reason = t("voteOwn");
       } else {
         const res = await withRetry(() =>
           agentVote(
             {
+              locale: localeRef.current,
               name: voter.name,
               trait: voter.trait,
               word: voter.word,
@@ -426,7 +448,7 @@ export function useGameLoop() {
         const target = alive.find((p) => p.id !== voter.id && p.name === res.vote);
         if (!target) throw new Error(`${voter.name} 返回了无效投票“${res.vote}”`);
         voteName = target.name;
-        reason = (res.voteReason || "凭直觉。").toString().trim();
+        reason = (res.voteReason || t("voteGut")).toString().trim();
       }
 
       const idx = working.findIndex((p) => p.id === voter.id);
@@ -434,6 +456,7 @@ export function useGameLoop() {
         ...working[idx],
         vote: voteName,
         reason,
+        lastVoteKey: voteKey,
         lastReasoning: reasoning,
         workingMemory: memUpdate ?? working[idx].workingMemory,
       };
@@ -456,7 +479,7 @@ export function useGameLoop() {
   // (a referee correctness check, like validating a vote — not deciding for it).
   const runSpyGuess = async (spy: Player, working: Player[]): Promise<"civ" | "spy"> => {
     const civWord = working.find((p) => p.role === "civilian")?.word ?? "";
-    const allClues = publicTranscript(working);
+    const allClues = publicTranscript(working, localeRef.current);
     addLog({ type: "system", text: t("spyComebackPrompt", { name: spy.name }) });
 
     let guess = "";
@@ -468,6 +491,7 @@ export function useGameLoop() {
         const res = await withRetry(() =>
           agentSpyGuess(
             {
+              locale: localeRef.current,
               name: spy.name,
               trait: spy.trait,
               allClues,
@@ -507,7 +531,7 @@ export function useGameLoop() {
 
     try {
       const aliveNames = aliveOf(working).map((p) => p.name);
-      await castVotes(working, aliveNames, publicTranscript(working));
+      await castVotes(working, aliveNames, publicTranscript(working, localeRef.current), `r${r}`);
       const first = tallyVotes(working);
       addLog({ type: "tally", text: t("tallyResult", { tally: fmtTally(first.tally) }) });
       track("tally", { round: r, stage: "first", tie: first.tie, top: first.topNames });
@@ -519,20 +543,25 @@ export function useGameLoop() {
         // Tie-break: tied players each add one more clue, then a revote restricted
         // to just the tied candidates. Still tied → nobody is eliminated.
         addLog({ type: "system", text: t("tieBreak", { names: first.topNames.join(t("tieNamesSep")) }) });
-        const transcript = publicTranscript(working).split("\n").filter(Boolean);
+        const transcript = publicTranscript(working, localeRef.current).split("\n").filter(Boolean);
         for (const nm of first.topNames) {
           const sp = working.find((p) => p.name === nm && p.alive);
           if (!sp) continue;
+          // Resume, don't redo: a tied player who already added their one extra
+          // PK clue this round has clues.length > r (one beyond the normal round).
+          // Skip them so a retry doesn't append a second PK clue.
+          if (sp.clues.length > r) continue;
           setSpeakingId(sp.id);
           await sleep(300);
           let clue: string;
           let reasoning: string | null = null;
           if (sp.kind === "human") {
-            clue = (await waitForHuman("describe", sp)).trim() || "(……我再补一句)";
+            clue = (await waitForHuman("describe", sp)).trim() || t("cluePkAdd");
           } else {
             const res = await withRetry(() =>
               agentDescribe(
                 {
+                  locale: localeRef.current,
                   name: sp.name,
                   trait: sp.trait,
                   word: sp.word,
@@ -549,20 +578,20 @@ export function useGameLoop() {
                 sp.model,
               ),
             );
-            clue = (res.clue || "").toString().trim() || "(……)";
+            clue = (res.clue || "").toString().trim() || t("clueEllipsis");
             reasoning = res.reasoning ?? null;
             if (res.memoryUpdate) sp.workingMemory = res.memoryUpdate.toString();
           }
           const i2 = working.findIndex((p) => p.id === sp.id);
           working[i2] = { ...working[i2], clues: [...working[i2].clues, clue], lastReasoning: reasoning };
-          transcript.push(`【第${r}轮·PK】${sp.name}：${clue}`);
+          transcript.push(transcriptLine(r, sp.name, clue, localeRef.current, true));
           sync(working);
           addLog({ type: "clue", id: sp.id, name: sp.name, emoji: sp.emoji, round: r, text: clue, reasoning });
           await sleep(200);
         }
         setSpeakingId(null);
         addLog({ type: "phase", text: t("pkPhase", { round: r }), round: r });
-        await castVotes(working, first.topNames, publicTranscript(working), first.topNames);
+        await castVotes(working, first.topNames, publicTranscript(working, localeRef.current), `r${r}-pk`, first.topNames);
         const second = tallyVotes(working);
         addLog({ type: "tally", text: t("pkTally", { tally: fmtTally(second.tally) }) });
         if (second.tie) {

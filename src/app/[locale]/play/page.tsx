@@ -122,8 +122,6 @@ export default function Home() {
 
         <footer style={S.footer}>
           {t("footer")}
-          <span style={{ margin: "0 8px", opacity: 0.5 }}>·</span>
-          <Link href="/dashboard" style={{ color: "var(--amber)", textDecoration: "none" }}>{t("dashboard")}</Link>
         </footer>
       </div>
     </div>

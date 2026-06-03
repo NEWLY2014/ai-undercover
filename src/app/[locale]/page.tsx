@@ -36,12 +36,6 @@ export default function Landing() {
             </div>
           ))}
         </div>
-
-        <footer style={S.footer}>
-          <Link href="/dashboard" style={{ color: "var(--amber)", textDecoration: "none" }}>
-            {t("dashboardLink")}
-          </Link>
-        </footer>
       </div>
     </div>
   );
