@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import type { CSSProperties } from "react";
 import type { SuspicionSnapshot } from "@/game/types";
@@ -36,6 +37,7 @@ export default function SuspicionPanel({
   snapshots: SuspicionSnapshot[];
   suspecting: boolean;
 }) {
+  const t = useTranslations("Suspicion");
   // null = follow the latest snapshot; a number pins to that index.
   const [pinned, setPinned] = useState<number | null>(null);
   const n = snapshots.length;
@@ -44,12 +46,10 @@ export default function SuspicionPanel({
     return (
       <div style={wrap}>
         <div style={head}>
-          <span style={titleS}>🔬 实时嫌疑矩阵</span>
-          <span style={{ fontSize: 12, color: "var(--muted)" }}>{suspecting ? "评估中…" : "等待第一句发言…"}</span>
+          <span style={titleS}>{t("title")}</span>
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>{suspecting ? t("evaluating") : t("waiting")}</span>
         </div>
-        <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>
-          每句发言之后，每个 AI 都会重新评估它对其他人的卧底嫌疑(0–100)。这里会随发言实时变化。
-        </p>
+        <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>{t("intro")}</p>
       </div>
     );
   }
@@ -61,19 +61,19 @@ export default function SuspicionPanel({
   return (
     <div style={wrap}>
       <div style={head}>
-        <span style={titleS}>🔬 实时嫌疑矩阵</span>
+        <span style={titleS}>{t("title")}</span>
         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <button style={navBtn} disabled={idx === 0} onClick={() => setPinned(idx - 1)}>
             ◀
           </button>
           <span style={{ fontSize: 12, color: "var(--muted)", minWidth: 150, textAlign: "center" }}>
-            第 {snap.round} 轮 · {snap.afterSpeakerName} 发言后 ({idx + 1}/{n})
+            {t("nav", { round: snap.round, name: snap.afterSpeakerName, idx: idx + 1, n })}
           </span>
           <button style={navBtn} disabled={idx >= n - 1} onClick={() => setPinned(idx + 1 >= n - 1 ? null : idx + 1)}>
             ▶
           </button>
           <button style={{ ...navBtn, opacity: pinned == null ? 0.5 : 1 }} onClick={() => setPinned(null)}>
-            最新
+            {t("latest")}
           </button>
         </span>
       </div>
@@ -82,7 +82,7 @@ export default function SuspicionPanel({
         <table style={{ borderCollapse: "separate", borderSpacing: 4 }}>
           <thead>
             <tr>
-              <th style={{ ...th, textAlign: "right" }}>评估者 ＼ 怀疑</th>
+              <th style={{ ...th, textAlign: "right" }}>{t("tableHeader")}</th>
               {targets.map((t) => (
                 <th key={t} style={th}>
                   {t}
@@ -130,7 +130,7 @@ export default function SuspicionPanel({
         })}
       </div>
       {suspecting && (
-        <div style={{ fontSize: 12, color: "var(--amber)", marginTop: 8, fontFamily: "var(--font-mono)" }}>● 正在评估下一句…</div>
+        <div style={{ fontSize: 12, color: "var(--amber)", marginTop: 8, fontFamily: "var(--font-mono)" }}>{t("evaluatingNext")}</div>
       )}
     </div>
   );

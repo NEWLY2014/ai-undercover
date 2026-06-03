@@ -209,5 +209,30 @@
     "recalled": "Recalled lessons ({n} at this game's start)",
     "noExperience": "(First appearance — no experience yet)",
     "workingNote": "This game's private notes (live)"
+  },
+  "Suspicion": {
+    "title": "🔬 Live suspicion matrix",
+    "evaluating": "evaluating…",
+    "waiting": "waiting for the first clue…",
+    "intro": "After every statement, each AI re-scores how much it suspects everyone else (0–100). This updates live as clues land.",
+    "nav": "Round {round} · after {name} ({idx}/{n})",
+    "latest": "Latest",
+    "tableHeader": "rater ＼ suspicion",
+    "evaluatingNext": "● scoring the next statement…"
+  },
+  "AISlot": {
+    "avatar": "avatar emoji",
+    "name": "name",
+    "trait": "Persona",
+    "thinkingStyle": "Thinking style",
+    "model": "Model",
+    "attributes": "Attributes (injected into the prompt as persona; never used by code to decide for it)",
+    "attr_reasoning": "Reasoning",
+    "attr_caution": "Caution",
+    "attr_disguise": "Disguise",
+    "attr_expressiveness": "Expression",
+    "modelDefault": "Default (follow server)",
+    "modelFast": "qwen2.5:3b · fast",
+    "modelStrong": "qwen2.5:7b · strong"
   }
 }

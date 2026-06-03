@@ -209,5 +209,30 @@
     "recalled": "过往经验(本局开局召回 {n} 条)",
     "noExperience": "（首次登场，暂无经验）",
     "workingNote": "本局私人笔记(实时更新)"
+  },
+  "Suspicion": {
+    "title": "🔬 实时嫌疑矩阵",
+    "evaluating": "评估中…",
+    "waiting": "等待第一句发言…",
+    "intro": "每句发言之后，每个 AI 都会重新评估它对其他人的卧底嫌疑(0–100)。这里会随发言实时变化。",
+    "nav": "第 {round} 轮 · {name} 发言后 ({idx}/{n})",
+    "latest": "最新",
+    "tableHeader": "评估者 ＼ 怀疑",
+    "evaluatingNext": "● 正在评估下一句…"
+  },
+  "AISlot": {
+    "avatar": "头像 emoji",
+    "name": "名字",
+    "trait": "性格",
+    "thinkingStyle": "思维方式",
+    "model": "模型",
+    "attributes": "初始素质(仅作为人设注入提示词，不会被代码用来替它决策)",
+    "attr_reasoning": "推理力",
+    "attr_caution": "谨慎度",
+    "attr_disguise": "伪装力",
+    "attr_expressiveness": "表达力",
+    "modelDefault": "默认(跟随服务端)",
+    "modelFast": "qwen2.5:3b · 快",
+    "modelStrong": "qwen2.5:7b · 强"
   }
 }
