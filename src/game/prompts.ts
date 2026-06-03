@@ -306,6 +306,7 @@ ${p.allClues}
 
 Players still in and votable: ${others.join(", ")}
 You can't vote for yourself (${p.name}).
+⚠️ Your vote MUST be exactly one name from that list. Anyone not on it — including players eliminated in earlier rounds who still show up in the transcript — is NOT a valid choice.
 
 How to vote:
 
@@ -337,6 +338,7 @@ ${p.allClues}
 
 仍在场、可被投票的玩家：${others.join("、")}
 你不能投自己(${p.name})。
+⚠️ 你的票必须从上面这份名单里恰好选一个名字。名单之外的人一律不能投——包括前几轮已经出局、只是还出现在发言记录里的人。
 
 投票心法：
 

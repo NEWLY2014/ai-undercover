@@ -142,21 +142,25 @@ export function useGameLoop() {
     const results = await Promise.all(
       aiRaters.map(async (rater) => {
         try {
-          const res = await agentSuspect(
-            {
-              locale: localeRef.current,
-              name: rater.name,
-              trait: rater.trait,
-              word: rater.word,
-              allClues,
-              aliveNames,
-              thinkingStyle: rater.thinkingStyle,
-              attributes: rater.attributes,
-              learnings: rater.recalledLearnings,
-              memory: rater.workingMemory,
-              isBlank: rater.role === "blank",
-            },
-            rater.model,
+          // Re-ask on a transient failure (network / malformed-JSON from the model),
+          // same as describe/vote — one flaky roll shouldn't drop this rater's row.
+          const res = await withRetry(() =>
+            agentSuspect(
+              {
+                locale: localeRef.current,
+                name: rater.name,
+                trait: rater.trait,
+                word: rater.word,
+                allClues,
+                aliveNames,
+                thinkingStyle: rater.thinkingStyle,
+                attributes: rater.attributes,
+                learnings: rater.recalledLearnings,
+                memory: rater.workingMemory,
+                isBlank: rater.role === "blank",
+              },
+              rater.model,
+            ),
           );
           return { rater, res };
         } catch {
@@ -396,22 +400,26 @@ export function useGameLoop() {
       ai.map(async (p) => {
         const won = (p.isSpy && winner === "spy") || (!p.isSpy && winner === "civ");
         try {
-          const res = await agentReflect(
-            {
-              locale: localeRef.current,
-              name: p.name,
-              trait: p.trait,
-              word: p.word,
-              role: p.isSpy ? "卧底" : "平民",
-              won,
-              transcript,
-              outcome: winner === "civ" ? "平民胜" : "卧底胜",
-              thinkingStyle: p.thinkingStyle,
-              attributes: p.attributes,
-              learnings: p.recalledLearnings,
-              memory: p.workingMemory,
-            },
-            p.model,
+          // Re-ask on a transient failure (malformed-JSON roll), like describe/vote,
+          // so a single bad roll doesn't silently skip this agent's learnings.
+          const res = await withRetry(() =>
+            agentReflect(
+              {
+                locale: localeRef.current,
+                name: p.name,
+                trait: p.trait,
+                word: p.word,
+                role: p.isSpy ? "卧底" : "平民",
+                won,
+                transcript,
+                outcome: winner === "civ" ? "平民胜" : "卧底胜",
+                thinkingStyle: p.thinkingStyle,
+                attributes: p.attributes,
+                learnings: p.recalledLearnings,
+                memory: p.workingMemory,
+              },
+              p.model,
+            ),
           );
           const learnings = (res.learnings || []).map((s) => s.toString().trim()).filter(Boolean).slice(0, 3);
           if (learnings.length) appendMemory(p.agentId, learnings);
