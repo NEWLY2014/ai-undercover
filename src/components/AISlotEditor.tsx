@@ -1,22 +1,18 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { CSSProperties } from "react";
 import { THINKING_STYLES } from "@/game/thinkingStyles";
 import { DEFAULT_ATTRIBUTES, type AgentAttributes, type AgentProfile } from "@/game/types";
 
-// Model choices for local Ollama. "" = follow server default.
+// Model choices for local Ollama. "" = follow server default. msgKey → i18n label.
 const MODEL_OPTIONS = [
-  { value: "", label: "默认(跟随服务端)" },
-  { value: "qwen2.5:3b", label: "qwen2.5:3b · 快" },
-  { value: "qwen2.5:7b", label: "qwen2.5:7b · 强" },
+  { value: "", msgKey: "modelDefault" },
+  { value: "qwen2.5:3b", msgKey: "modelFast" },
+  { value: "qwen2.5:7b", msgKey: "modelStrong" },
 ];
 
-const ATTR_KEYS: Array<{ key: keyof AgentAttributes; label: string }> = [
-  { key: "reasoning", label: "推理力" },
-  { key: "caution", label: "谨慎度" },
-  { key: "disguise", label: "伪装力" },
-  { key: "expressiveness", label: "表达力" },
-];
+const ATTR_KEYS: Array<keyof AgentAttributes> = ["reasoning", "caution", "disguise", "expressiveness"];
 
 const card: CSSProperties = {
   background: "var(--panel2)",
@@ -61,6 +57,7 @@ export default function AISlotEditor({
   slots: AgentProfile[];
   onChange: (slots: AgentProfile[]) => void;
 }) {
+  const t = useTranslations("AISlot");
   const update = (i: number, patch: Partial<AgentProfile>) => {
     const next = slots.map((s, idx) => (idx === i ? { ...s, ...patch } : s));
     onChange(next);
@@ -82,18 +79,18 @@ export default function AISlotEditor({
                 value={s.emoji}
                 maxLength={2}
                 onChange={(e) => update(i, { emoji: e.target.value })}
-                aria-label="头像 emoji"
+                aria-label={t("avatar")}
               />
               <input
                 style={{ ...inp, flex: 1 }}
                 value={s.name}
                 onChange={(e) => update(i, { name: e.target.value })}
-                aria-label="名字"
+                aria-label={t("name")}
               />
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={lbl}>性格</span>
+              <span style={lbl}>{t("trait")}</span>
               <textarea
                 style={{ ...inp, resize: "vertical", minHeight: 44 }}
                 value={s.trait}
@@ -103,21 +100,21 @@ export default function AISlotEditor({
 
             <div style={{ display: "flex", gap: 8 }}>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-                <span style={lbl}>思维方式</span>
+                <span style={lbl}>{t("thinkingStyle")}</span>
                 <select style={sel} value={s.thinkingStyle ?? "balanced"} onChange={(e) => update(i, { thinkingStyle: e.target.value })}>
-                  {THINKING_STYLES.map((t) => (
-                    <option key={t.key} value={t.key}>
-                      {t.label}
+                  {THINKING_STYLES.map((ts) => (
+                    <option key={ts.key} value={ts.key}>
+                      {ts.label}
                     </option>
                   ))}
                 </select>
               </div>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-                <span style={lbl}>模型</span>
+                <span style={lbl}>{t("model")}</span>
                 <select style={sel} value={s.model ?? ""} onChange={(e) => update(i, { model: e.target.value })}>
                   {MODEL_OPTIONS.map((m) => (
                     <option key={m.value} value={m.value}>
-                      {m.label}
+                      {t(m.msgKey)}
                     </option>
                   ))}
                 </select>
@@ -125,20 +122,20 @@ export default function AISlotEditor({
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <span style={lbl}>初始素质(仅作为人设注入提示词，不会被代码用来替它决策)</span>
-              {ATTR_KEYS.map((a) => (
-                <div key={a.key} style={row}>
-                  <span style={{ fontSize: 12, color: "var(--ink)", width: 52 }}>{a.label}</span>
+              <span style={lbl}>{t("attributes")}</span>
+              {ATTR_KEYS.map((key) => (
+                <div key={key} style={row}>
+                  <span style={{ fontSize: 12, color: "var(--ink)", width: 52 }}>{t(`attr_${key}`)}</span>
                   <input
                     type="range"
                     min={0}
                     max={10}
-                    value={attrs[a.key]}
-                    onChange={(e) => updateAttr(i, a.key, Number(e.target.value))}
+                    value={attrs[key]}
+                    onChange={(e) => updateAttr(i, key, Number(e.target.value))}
                     style={{ flex: 1, accentColor: "var(--amber)" }}
                   />
                   <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, width: 20, textAlign: "right" }}>
-                    {attrs[a.key]}
+                    {attrs[key]}
                   </span>
                 </div>
               ))}
