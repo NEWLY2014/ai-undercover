@@ -487,3 +487,81 @@ ${STRATEGY.zh}
 - 每条一句话，具体可操作，避免“要更小心”这种空话。
 - 放进 learnings 数组。`;
 }
+
+// The masterclass coach: a seasoned, wily veteran who sits beside the HUMAN
+// student and gives sharp, board-specific tactical advice — so the student
+// genuinely improves. It reasons only from the PUBLIC clues (it never cheats by
+// being told who the spy is), like a strong player would.
+export interface CoachPayload extends AgentContext {
+  decision: "describe" | "vote";
+  name: string;
+  role: "civilian" | "spy" | "blank";
+  word: string;
+  allClues: string;
+  aliveNames: string[];
+  round: number;
+}
+
+export function buildCoachPrompt(p: CoachPayload): string {
+  const locale = L(p);
+  if (locale === "en") {
+    const roleEn = p.role === "spy" ? "the undercover (a minority word)" : p.role === "blank" ? "the blank (no word at all)" : "a civilian";
+    const wordLine = p.role === "blank" ? "You have NO word." : `Your word is 【${p.word}】.`;
+    const task =
+      p.decision === "describe"
+        ? "It's your turn to give a one-line clue. As my coach, tell me the smartest way to clue here."
+        : "It's the vote. As my coach, tell me who to suspect and why.";
+    const rule =
+      p.decision === "describe"
+        ? "Suggest 1-2 concrete angles/techniques for their word (a homophone, an allusion, completing a set phrase, the one essential trait...), and one trap to avoid (too blunt / too flat / echoing someone). Don't hand them a finished line word-for-word — coach the move so they learn it."
+        : "Reason from the clues like a strong player: name who looks most off and exactly why (whose clue doesn't fit what everyone's circling, who's coasting on filler). If they're the minority/undercover, coach them to deflect safely instead. Teach them how you read it.";
+    return `${GAME_RULES.en}
+
+You are a seasoned, wily "Who's the Undercover" coach sitting beside a human student during a practice game. Your job is to make them genuinely better — sharp, concrete, tactical advice, the kind only a veteran who has played hundreds of games would give. Read the table like a shark.
+
+The student's situation: they are ${roleEn}. ${wordLine} It is round ${p.round}.
+
+Clues on the table so far:
+${p.allClues || "(no clues yet — they're among the first to speak)"}
+
+Players still in: ${p.aliveNames.join(", ")}
+
+${task}
+
+Coaching rules:
+- Be specific to THIS board, not generic. Reference the actual clues/players by name where it helps.
+- ${rule}
+- 2-4 sentences, punchy and human, like a mentor muttering in their ear. No headings, no lists.
+
+Put your advice in the tip field.`;
+  }
+  const roleZh = p.role === "spy" ? "卧底（少数派词）" : p.role === "blank" ? "白板（没有词）" : "平民";
+  const wordLine = p.role === "blank" ? "你没有词（你是白板）。" : `你的词是【${p.word}】。`;
+  const task =
+    p.decision === "describe"
+      ? "轮到你描述了，要给一句话。作为我的教练，告诉我这一手最聪明该怎么打。"
+      : "到投票了。作为我的教练，告诉我该怀疑谁、为什么。";
+  const rule =
+    p.decision === "describe"
+      ? "给他这个词的 1-2 个具体角度/描法（谐音、用典、补全固定搭配、抓最本质的特征……），再点一个要避开的坑（太直白／太干巴／跟描别人）。别直接把成句喂给他——把“这一手怎么打”教给他，让他学会。"
+      : "像高手一样从描述里推：点名谁最不对劲、到底哪句话露了馅（谁和大家共同指向的那类东西对不上、谁全程在蒙）。如果他自己就是少数派／卧底，就教他怎么安全地转移视线。把你的读法教给他。";
+  return `${GAME_RULES.zh}
+
+你是一位身经百战、贼精的“谁是卧底”教练，正坐在一位人类学员旁边陪练。你的任务是让他真正变强——给出尖锐、具体、实战的指点，那种打过几百局的老油条才有的洞察。像鲨鱼一样读牌桌。
+
+学员的处境：他是${roleZh}。${wordLine} 现在是第 ${p.round} 轮。
+
+目前桌上的描述：
+${p.allClues || "（还没有描述——他在最早发言之列）"}
+
+仍在场的玩家：${p.aliveNames.join("、")}
+
+${task}
+
+指点要求：
+- 针对【这一局的实际牌面】，别讲空泛套话。该点名就点名某句描述、某个人。
+- ${rule}
+- 2-4 句，干脆、有人味，像师傅在你耳边低声支招。别用标题，别列点。
+
+把你的建议写进 tip 字段。`;
+}

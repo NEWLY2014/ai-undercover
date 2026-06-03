@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useCallback, useRef, useState } from "react";
-import { agentDescribe, agentReflect, agentSpyGuess, agentSuspect, agentVote } from "@/ai/agent";
+import { agentCoach, agentDescribe, agentReflect, agentSpyGuess, agentSuspect, agentVote } from "@/ai/agent";
 import { append as appendMemory, recall as recallMemory } from "@/ai/memory";
 import {
   aliveOf,
@@ -67,15 +67,21 @@ export function useGameLoop() {
   const [suspicion, setSuspicion] = useState<SuspicionSnapshot[]>([]);
   const [suspecting, setSuspecting] = useState(false);
   const [reflecting, setReflecting] = useState(false);
+  // Masterclass coach: the LLM's tactical advice for the human's current turn.
+  const [coachTip, setCoachTip] = useState<string | null>(null);
+  const [coachLoading, setCoachLoading] = useState(false);
 
   // Holds the latest players array so async loops never read stale state.
   const playersRef = useRef<Player[]>([]);
   const orderRef = useRef<number[]>([]);
   const roundRef = useRef(1);
   const devModeRef = useRef(false);
+  const tutorialRef = useRef(false);
   // The game's language, set once at start; threaded into every agent prompt and
   // the transcript format so an /en game is played entirely in English.
   const localeRef = useRef<"zh" | "en">("zh");
+  // The last config started, so "play again" can replay the same settings.
+  const lastConfigRef = useRef<GameConfig | null>(null);
   // Resolver that the async loop awaits while the human takes their turn.
   const humanResolver = useRef<((value: string) => void) | null>(null);
 
@@ -92,10 +98,34 @@ export function useGameLoop() {
       setHumanTurn({ kind, player, candidates });
     });
 
+  // Masterclass only: in the background, ask the LLM coach for tactical advice on
+  // the human's current decision. The advice is the LLM's — code only displays it;
+  // the human still decides. A failure just leaves the static hint in place.
+  const fetchCoach = (decision: "describe" | "vote", player: Player, allClues: string, aliveNames: string[]) => {
+    if (!tutorialRef.current || player.kind !== "human") return;
+    setCoachTip(null);
+    setCoachLoading(true);
+    void agentCoach({
+      locale: localeRef.current,
+      decision,
+      name: player.name,
+      role: player.role,
+      word: player.word,
+      allClues,
+      aliveNames,
+      round: roundRef.current,
+    })
+      .then((res) => setCoachTip((res.tip || "").toString().trim() || null))
+      .catch(() => setCoachTip(null))
+      .finally(() => setCoachLoading(false));
+  };
+
   const submitHuman = useCallback((value: string) => {
     const r = humanResolver.current;
     humanResolver.current = null;
     setHumanTurn(null);
+    setCoachTip(null);
+    setCoachLoading(false);
     if (r) r(value);
   }, []);
 
@@ -168,6 +198,7 @@ export function useGameLoop() {
   // ── Start a game ────────────────────────────────────────────────────────
   const startGame = useCallback((config: GameConfig) => {
     localeRef.current = config.locale ?? "zh";
+    lastConfigRef.current = config;
     const pairChosen = getWordPair(config.wordPairId, { theme: config.theme, difficulty: config.difficulty }, config.locale ?? "zh");
     const aiCount = config.totalPlayers - config.humanPlayers;
     // Advanced settings supply per-seat AgentProfiles; otherwise use PERSONAS defaults.
@@ -206,6 +237,9 @@ export function useGameLoop() {
     setDevMode(config.devMode);
     devModeRef.current = config.devMode;
     setTutorial(!!config.tutorial);
+    tutorialRef.current = !!config.tutorial;
+    setCoachTip(null);
+    setCoachLoading(false);
     setSuspicion([]);
     setLog([
       {
@@ -261,6 +295,8 @@ export function useGameLoop() {
         let clue: string;
         let reasoning: string | null = null;
         if (sp.kind === "human") {
+          // Masterclass: ask the coach (in the background) how to clue this turn.
+          fetchCoach("describe", sp, transcript.join("\n"), aliveOf(working).map((p) => p.name));
           // Block the human from repeating or saying "same as above"; re-prompt until valid.
           clue = "(……我先不说太多)";
           while (true) {
@@ -393,7 +429,9 @@ export function useGameLoop() {
 
   // One round of voting. Each alive player votes for someone in candidateNames
   // (the enum is passed to the model, so the choice is structurally constrained
-  // but always the agent's). Mutates `working` in place; reset votes first.
+  // but always the agent's). Everyone — all AI agents AND the human — votes
+  // CONCURRENTLY; the cast votes are applied and revealed together only after
+  // every voter has finished, so no one's choice is shown before the rest.
   const castVotes = async (
     working: Player[],
     candidateNames: string[],
@@ -408,68 +446,103 @@ export function useGameLoop() {
       if (working[i].lastVoteKey !== voteKey) working[i] = { ...working[i], vote: null, reason: null };
     }
     const alive = aliveOf(working);
-    for (const voter of alive) {
-      const candidates = candidateNames.filter((n) => n !== voter.name);
-      if (candidates.length === 0) continue;
-      // Resume, don't re-ask: this voter already voted in this stage on a prior attempt.
-      if (voter.lastVoteKey === voteKey && voter.vote != null) continue;
-      setSpeakingId(voter.id);
-      await sleep(280);
+    // Voters still needing to vote this stage (resumable: skip already-voted ones).
+    const todo = alive.filter((v) => {
+      if (candidateNames.filter((n) => n !== v.name).length === 0) return false;
+      return !(v.lastVoteKey === voteKey && v.vote != null);
+    });
+    if (todo.length === 0) {
+      setSpeakingId(null);
+      return;
+    }
 
-      let voteName: string;
-      let reason: string;
-      let reasoning: string | null = null;
-      let memUpdate: string | null = null;
+    // A pending vote — collected without mutating/logging so the reveal can wait
+    // until everyone is done.
+    type Cast = { voter: Player; voteName: string; reason: string; reasoning: string | null; memUpdate: string | null };
 
-      if (voter.kind === "human") {
-        voteName = await waitForHuman("vote", voter, humanCandidates ?? candidateNames);
-        reason = t("voteOwn");
-      } else {
-        const res = await withRetry(() =>
-          agentVote(
-            {
-              locale: localeRef.current,
-              name: voter.name,
-              trait: voter.trait,
-              word: voter.word,
-              allClues,
-              aliveNames: candidateNames,
-              thinkingStyle: voter.thinkingStyle,
-              attributes: voter.attributes,
-              learnings: voter.recalledLearnings,
-              memory: voter.workingMemory,
-              isBlank: voter.role === "blank",
-            },
-            voter.model,
-          ),
-        );
-        reasoning = res.reasoning ?? null;
-        memUpdate = res.memoryUpdate ?? null;
-        const target = alive.find((p) => p.id !== voter.id && p.name === res.vote);
-        if (!target) throw new Error(`${voter.name} 返回了无效投票“${res.vote}”`);
-        voteName = target.name;
-        reason = (res.voteReason || t("voteGut")).toString().trim();
-      }
+    const human = todo.find((v) => v.kind === "human");
+    const ais = todo.filter((v) => v.kind === "ai");
 
-      const idx = working.findIndex((p) => p.id === voter.id);
+    // All AI agents vote in parallel. A voter that ultimately fails (or returns an
+    // invalid name even after re-asking) just abstains this stage rather than
+    // aborting everyone else's vote.
+    const aiVotes = Promise.all(
+      ais.map(async (voter): Promise<Cast | null> => {
+        try {
+          return await withRetry(async (): Promise<Cast> => {
+            const res = await agentVote(
+              {
+                locale: localeRef.current,
+                name: voter.name,
+                trait: voter.trait,
+                word: voter.word,
+                allClues,
+                aliveNames: candidateNames,
+                thinkingStyle: voter.thinkingStyle,
+                attributes: voter.attributes,
+                learnings: voter.recalledLearnings,
+                memory: voter.workingMemory,
+                isBlank: voter.role === "blank",
+              },
+              voter.model,
+            );
+            const target = alive.find((p) => p.id !== voter.id && p.name === res.vote);
+            if (!target) throw new Error(`${voter.name} returned an invalid vote “${res.vote}”`);
+            return {
+              voter,
+              voteName: target.name,
+              reason: (res.voteReason || t("voteGut")).toString().trim(),
+              reasoning: res.reasoning ?? null,
+              memUpdate: res.memoryUpdate ?? null,
+            };
+          });
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    // The human votes at the same time. Pass humanCandidates straight through (not
+    // the full list) so the "pick among the tied" UI only shows in an actual PK.
+    if (human) fetchCoach("vote", human, allClues, candidateNames);
+    const humanVote: Promise<Cast | null> = human
+      ? waitForHuman("vote", human, humanCandidates).then((voteName) => ({
+          voter: human,
+          voteName,
+          reason: t("voteOwn"),
+          reasoning: null,
+          memUpdate: null,
+        }))
+      : Promise.resolve(null);
+
+    const [humanCast, aiCasts] = await Promise.all([humanVote, aiVotes]);
+    const casts = [humanCast, ...aiCasts].filter((c): c is Cast => c != null);
+    if (casts.length === 0) throw new Error("没有任何有效投票（所有投票均失败）。");
+
+    // Apply every vote, then reveal the whole tally of votes together (seating order).
+    for (const c of casts) {
+      const idx = working.findIndex((p) => p.id === c.voter.id);
       working[idx] = {
         ...working[idx],
-        vote: voteName,
-        reason,
+        vote: c.voteName,
+        reason: c.reason,
         lastVoteKey: voteKey,
-        lastReasoning: reasoning,
-        workingMemory: memUpdate ?? working[idx].workingMemory,
+        lastReasoning: c.reasoning,
+        workingMemory: c.memUpdate ?? working[idx].workingMemory,
       };
-      sync(working);
-      addLog({ type: "vote", id: voter.id, name: voter.name, emoji: voter.emoji, target: voteName, reason, reasoning });
+    }
+    sync(working);
+    for (const v of alive) {
+      const c = casts.find((x) => x.voter.id === v.id);
+      if (!c) continue;
+      addLog({ type: "vote", id: c.voter.id, name: c.voter.name, emoji: c.voter.emoji, target: c.voteName, reason: c.reason, reasoning: c.reasoning });
       track("vote", {
         round: roundRef.current,
-        voter: voter.name,
-        voterKind: voter.kind,
-        voterIsSpy: voter.isSpy,
-        target: voteName,
+        voter: c.voter.name,
+        voterKind: c.voter.kind,
+        voterIsSpy: c.voter.isSpy,
+        target: c.voteName,
       });
-      await sleep(200);
     }
     setSpeakingId(null);
   };
@@ -669,6 +742,18 @@ export function useGameLoop() {
     setError(null);
   }, []);
 
+  // Play again with the SAME settings — only the word changes (wordPairId null
+  // re-rolls a random pair within the same theme/difficulty filter). Does not
+  // return to setup, so the masterclass intro cards don't reappear either.
+  const playAgain = useCallback(() => {
+    const c = lastConfigRef.current;
+    if (!c) {
+      setPhase("setup");
+      return;
+    }
+    startGame({ ...c, wordPairId: null });
+  }, [startGame]);
+
   return {
     phase,
     players,
@@ -686,11 +771,14 @@ export function useGameLoop() {
     suspicion,
     suspecting,
     reflecting,
+    coachTip,
+    coachLoading,
     startGame,
     runDescribe,
     runVote,
     nextRound,
     restart,
+    playAgain,
     submitHuman,
   };
 }

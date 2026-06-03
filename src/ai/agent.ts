@@ -1,6 +1,6 @@
 // Client-side wrapper around the /api/agent backend proxy. The browser never
 // sees the Anthropic key — it only talks to our own route.
-import type { DescribePayload, ReflectPayload, SpyGuessPayload, SuspectPayload, VotePayload } from "@/game/prompts";
+import type { CoachPayload, DescribePayload, ReflectPayload, SpyGuessPayload, SuspectPayload, VotePayload } from "@/game/prompts";
 import { getGameId } from "@/lib/telemetry";
 
 export interface DescribeResult {
@@ -25,10 +25,13 @@ export interface SpyGuessResult {
   reasoning: string;
   guess: string;
 }
+export interface CoachResult {
+  tip: string;
+}
 
 async function callAgent<T>(
-  kind: "describe" | "vote" | "suspect" | "reflect" | "spyGuess",
-  payload: DescribePayload | VotePayload | SuspectPayload | ReflectPayload | SpyGuessPayload,
+  kind: "describe" | "vote" | "suspect" | "reflect" | "spyGuess" | "coach",
+  payload: DescribePayload | VotePayload | SuspectPayload | ReflectPayload | SpyGuessPayload | CoachPayload,
   model?: string,
 ): Promise<T> {
   const res = await fetch("/api/agent", {
@@ -63,4 +66,8 @@ export function agentReflect(payload: ReflectPayload, model?: string): Promise<R
 
 export function agentSpyGuess(payload: SpyGuessPayload, model?: string): Promise<SpyGuessResult> {
   return callAgent<SpyGuessResult>("spyGuess", payload, model);
+}
+
+export function agentCoach(payload: CoachPayload, model?: string): Promise<CoachResult> {
+  return callAgent<CoachResult>("coach", payload, model);
 }

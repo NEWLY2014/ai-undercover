@@ -105,6 +105,7 @@ function Controls({
   onVote,
   onNext,
   onRestart,
+  onPlayAgain,
 }: {
   phase: Phase;
   busy: boolean;
@@ -112,6 +113,7 @@ function Controls({
   onVote: () => void;
   onNext: () => void;
   onRestart: () => void;
+  onPlayAgain: () => void;
 }) {
   const t = useTranslations("Board");
   if (phase === "ready")
@@ -146,9 +148,26 @@ function Controls({
     );
   if (phase === "gameover")
     return (
-      <button style={S.actBtn} onClick={onRestart}>
-        {t("ctlRestart")}
-      </button>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <button style={S.actBtn} onClick={onPlayAgain}>
+          {t("ctlRestart")}
+        </button>
+        <button
+          onClick={onRestart}
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 13,
+            color: "var(--muted)",
+            background: "transparent",
+            border: "1px solid var(--line)",
+            borderRadius: 10,
+            padding: "9px 14px",
+            cursor: "pointer",
+          }}
+        >
+          {t("ctlNewSettings")}
+        </button>
+      </div>
     );
   return null;
 }
@@ -232,6 +251,8 @@ export interface BoardProps {
   humanTurn: HumanTurn | null;
   devMode: boolean;
   tutorial: boolean;
+  coachTip: string | null;
+  coachLoading: boolean;
   suspicion: SuspicionSnapshot[];
   suspecting: boolean;
   order: number[];
@@ -241,6 +262,7 @@ export interface BoardProps {
   onVote: () => void;
   onNext: () => void;
   onRestart: () => void;
+  onPlayAgain: () => void;
   onSubmitHuman: (v: string) => void;
 }
 
@@ -254,7 +276,7 @@ const PHASE_KEY: Record<string, string> = {
 };
 
 export default function Board(props: BoardProps) {
-  const { players, log, busy, speakingId, phase, round, winner, error, pair, humanTurn, guess, devMode, tutorial, suspicion, suspecting, order } = props;
+  const { players, log, busy, speakingId, phase, round, winner, error, pair, humanTurn, guess, devMode, tutorial, coachTip, coachLoading, suspicion, suspecting, order } = props;
   const t = useTranslations("Board");
   // Order seats by this round's speaking order; eliminated players sink to the end.
   const orderPos = new Map(order.map((id, i) => [id, i]));
@@ -269,16 +291,17 @@ export default function Board(props: BoardProps) {
   }, [log, phase]);
 
   const hasHuman = players.some((p) => p.kind === "human");
-  // Agent private reasoning (💭) is a developer-mode insight during play; in
-  // normal play it's hidden and only revealed once the game is over.
-  const showReasoning = devMode || tutorial || winner != null;
+  // Agent private reasoning (💭) is shown ONLY in developer mode or in the
+  // masterclass (where seeing how strong players think is the teaching point).
+  // With dev mode off it is never shown — not even once the game is over.
+  const showReasoning = devMode || tutorial;
   const spyName = players.find((p) => p.isSpy)?.name ?? "";
   const guessCorrect = winner != null && guess != null && players.find((p) => p.id === guess)?.isSpy;
   const phaseTag = PHASE_KEY[phase] ? t(PHASE_KEY[phase], { round }) : "";
 
   return (
     <>
-    {tutorial && <TutorialCoach phase={phase} humanTurn={humanTurn} winner={winner} players={players} />}
+    {tutorial && <TutorialCoach phase={phase} humanTurn={humanTurn} winner={winner} players={players} coachTip={coachTip} coachLoading={coachLoading} />}
     <div style={S.board} className="board">
       <section style={S.seats}>
         {orderedPlayers.map((p) => {
@@ -323,6 +346,7 @@ export default function Board(props: BoardProps) {
             onVote={props.onVote}
             onNext={props.onNext}
             onRestart={props.onRestart}
+            onPlayAgain={props.onPlayAgain}
           />
         </div>
       </section>

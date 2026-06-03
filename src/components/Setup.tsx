@@ -70,7 +70,10 @@ function saveSetupPrefs(p: SetupPrefs): void {
   }
 }
 
-export default function Setup({ onStart }: { onStart: (c: GameConfig) => void }) {
+// devUnlocked gates developer mode: it is NOT a casual user toggle. The play page
+// only passes true when an admin opts in (e.g. ?dev=1), so regular players never
+// see or flip it.
+export default function Setup({ onStart, devUnlocked = false }: { onStart: (c: GameConfig) => void; devUnlocked?: boolean }) {
   const t = useTranslations("Setup");
   const locale = useLocale() as "zh" | "en";
   const [total, setTotal] = useState(5);
@@ -141,7 +144,7 @@ export default function Setup({ onStart }: { onStart: (c: GameConfig) => void })
       wordPairId,
       theme,
       difficulty,
-      devMode,
+      devMode: devUnlocked ? devMode : false,
       tutorial: mode === "masterclass",
       aiSlots: advanced ? slots.slice(0, aiCount) : undefined,
     });
@@ -225,18 +228,20 @@ export default function Setup({ onStart }: { onStart: (c: GameConfig) => void })
           </div>
         </div>
 
-        <div style={S.field}>
-          <span style={S.fieldLabel}>{t("devMode")}</span>
-          <div style={S.toggle}>
-            <button
-              style={{ ...S.toggleBtn, ...(devMode ? S.toggleBtnSel : {}) }}
-              onClick={() => setDevMode((v) => !v)}
-              title={t("devModeTip")}
-            >
-              {devMode ? t("devModeOn") : t("off")}
-            </button>
+        {devUnlocked && (
+          <div style={S.field}>
+            <span style={S.fieldLabel}>{t("devMode")}</span>
+            <div style={S.toggle}>
+              <button
+                style={{ ...S.toggleBtn, ...(devMode ? S.toggleBtnSel : {}) }}
+                onClick={() => setDevMode((v) => !v)}
+                title={t("devModeTip")}
+              >
+                {devMode ? t("devModeOn") : t("off")}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         <div style={S.field}>
           <span style={S.fieldLabel}>{t("advanced")}</span>
