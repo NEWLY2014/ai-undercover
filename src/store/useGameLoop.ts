@@ -17,7 +17,7 @@ import {
   tallyVotes,
   transcriptLine,
 } from "@/game/engine";
-import { HUMAN_PROFILE, PERSONAS } from "@/game/personas";
+import { humanProfileFor, personasFor } from "@/game/personas";
 import { getWordPair } from "@/game/words";
 import type { AgentProfile, GameConfig, LogEntry, Phase, Player, SuspicionSnapshot, Winner } from "@/game/types";
 import { newGameId, track } from "@/lib/telemetry";
@@ -205,14 +205,16 @@ export function useGameLoop() {
     lastConfigRef.current = config;
     const pairChosen = getWordPair(config.wordPairId, { theme: config.theme, difficulty: config.difficulty }, config.locale ?? "zh");
     const aiCount = config.totalPlayers - config.humanPlayers;
-    // Advanced settings supply per-seat AgentProfiles; otherwise use PERSONAS defaults.
+    // Advanced settings supply per-seat AgentProfiles; otherwise use the locale's
+    // default personas (English names + traits in an /en game).
+    const locale = config.locale ?? "zh";
     const aiSource =
-      config.aiSlots && config.aiSlots.length >= aiCount ? config.aiSlots.slice(0, aiCount) : PERSONAS.slice(0, aiCount);
+      config.aiSlots && config.aiSlots.length >= aiCount ? config.aiSlots.slice(0, aiCount) : personasFor(locale).slice(0, aiCount);
     const profiles: Array<AgentProfile & { kind: "ai" | "human" }> = aiSource.map((p) => ({
       ...p,
       kind: "ai" as const,
     }));
-    if (config.humanPlayers === 1) profiles.push({ ...HUMAN_PROFILE, kind: "human" as const });
+    if (config.humanPlayers === 1) profiles.push({ ...humanProfileFor(locale), kind: "human" as const });
     // Seat the human at a random position so they aren't always last.
     for (let i = profiles.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));

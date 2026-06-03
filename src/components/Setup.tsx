@@ -6,7 +6,7 @@ import type { CSSProperties } from "react";
 import { S } from "@/app/styles";
 import AISlotEditor, { defaultSlots } from "@/components/AISlotEditor";
 import { maxSpyCount } from "@/game/engine";
-import { PERSONAS } from "@/game/personas";
+import { personasFor } from "@/game/personas";
 import { filterWordPairs, themesFor } from "@/game/words";
 import type { AgentProfile, GameConfig } from "@/game/types";
 
@@ -88,7 +88,7 @@ export default function Setup({ onStart, devUnlocked = false }: { onStart: (c: G
   const [difficulty, setDifficulty] = useState<number | null>(null);
   const [devMode, setDevMode] = useState(false);
   const [advanced, setAdvanced] = useState(false);
-  const [slots, setSlots] = useState<AgentProfile[]>(() => defaultSlots(PERSONAS, 5));
+  const [slots, setSlots] = useState<AgentProfile[]>(() => defaultSlots(personasFor(locale), 5));
 
   const clampTotal = (n: number) => Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n));
   const aiCount = total - human;
@@ -99,8 +99,16 @@ export default function Setup({ onStart, devUnlocked = false }: { onStart: (c: G
 
   // Keep the editable slot list sized to the AI seat count, preserving edits.
   useEffect(() => {
-    setSlots((prev) => defaultSlots(PERSONAS, aiCount).map((d, i) => prev[i] ?? d));
+    setSlots((prev) => defaultSlots(personasFor(locale), aiCount).map((d, i) => prev[i] ?? d));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiCount]);
+
+  // Switching language re-defaults the slots to that locale's personas (English
+  // names + traits in /en), so the advanced editor isn't stuck on Chinese names.
+  useEffect(() => {
+    setSlots(defaultSlots(personasFor(locale), aiCount));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locale]);
 
   // When player count changes, snap spy count into the legal range.
   useEffect(() => {
