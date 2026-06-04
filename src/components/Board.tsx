@@ -47,7 +47,10 @@ function PlayerCard({
           <div style={S.cardTrait}>{p.trait}</div>
         </div>
       </div>
-      {(revealAll || dead) && (
+      {/* A player's word stays secret until the whole game ends (revealAll = gameover).
+          When merely eliminated (dead) we reveal their ROLE via the elimination log,
+          but never their word — so the table can't read it off a dead player's card. */}
+      {revealAll && (
         <div style={{ ...S.cardWord, color: p.isSpy ? "var(--red)" : p.role === "blank" ? "var(--green)" : "var(--amber)" }}>
           {p.role === "blank" ? t("blankNoWord") : t("wordLabel", { word: p.word })}
         </div>

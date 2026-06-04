@@ -731,10 +731,10 @@ export function useGameLoop() {
         isSpy: out.isSpy,
         word: out.word,
         text: out.isSpy
-          ? t("elimSpy", { name: out.name, word: out.word })
+          ? t("elimSpy", { name: out.name })
           : out.role === "blank"
             ? t("elimBlank", { name: out.name })
-            : t("elimCiv", { name: out.name, word: out.word }),
+            : t("elimCiv", { name: out.name }),
       });
       track("eliminate", { round: r, name: out.name, kind: out.kind, role: out.role, isSpy: out.isSpy });
 

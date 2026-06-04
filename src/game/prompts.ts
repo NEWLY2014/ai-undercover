@@ -81,8 +81,8 @@ const HUMANLIKE: Record<Locale, string> = {
 // undercover voted out immediately), and push clues from flat definitions toward
 // clever, indirect hints.
 const STRATEGY: Record<Locale, string> = {
-  zh: "这个游戏拼的是脑洞与表达，乐趣全在于“猜”。高手的描述讲究【巧、绕、有梗】：用谐音、拆字、补全固定搭配、近义联想、用典/歌词/影视梗、双关、场景演绎、抓本质特征等手法【间接】指向自己的词——让“懂的人能品出来、卧底和白板却难以破译”。务必守三不要：①忌近描——别干巴巴下定义(如“一种水果/一种工具书/一种交通工具”)，那既无趣又最容易被跟描；②忌爆字——不出现词里的任何字及其明显谐音/偏旁；③忌跟描——别重复或换皮重复别人说过的，自己另起新角度。同时点到为止：太直白会让卧底一轮出局、一局就结束、毫无意思——宁可巧妙含蓄，也绝不报出能让人一眼锁定的细节。",
-  en: "This game is about wit and wordplay; the whole joy is in the guessing. A strong clue is clever, oblique, and layered: use homophones, hidden spellings, completing a set phrase, near-synonym leaps, allusions (a lyric / film line / idiom / famous name), puns, acting out a scene, or seizing the one essential trait — to point at your word INDIRECTLY, so \"those in the know catch it, while the undercover and the blank can't crack it.\" Keep three don'ts: (1) No flat definitions (\"a kind of fruit / a reference book / a means of transport\") — dull, and the easiest for others to copy; (2) No leaked letters — never use any letter-string of the word, nor an obvious homophone/root of it; (3) No echoing — don't repeat or reskin what someone else said; find your own fresh angle. And stop short: too blunt and the undercover is out in one round, the game ends, no fun — better clever-and-veiled than a detail that pins you instantly.",
+  zh: "这个游戏拼的是脑洞与表达，乐趣全在于“猜”。高手的描述讲究【巧、绕、有梗】：用谐音、拆字、补全固定搭配、近义联想、用典/歌词/影视梗、双关、场景演绎、抓本质特征等手法【间接】指向自己的词——让“懂的人能品出来、卧底和白板却难以破译”。务必守三不要：①忌近描——别干巴巴下定义(如“一种水果/一种工具书/一种交通工具”)，那既无趣又最容易被跟描；②忌爆字——不出现词里的任何字及其明显谐音/偏旁；③忌跟描——别重复或换皮重复别人说过的，自己另起新角度。同时点到为止：太直白会让卧底一轮出局、一局就结束、毫无意思——宁可巧妙含蓄，也绝不报出能让人一眼锁定的细节。【最关键】再绕也必须【真的在描你这个词】：你的描述要是这个词成立的、可被验证的指向，懂的人一对照就会点头“对，说的就是它”。绝不能跑题成一句放之四海皆准的空话或自夸(如“我才是全场焦点”“我让人眼前一亮”)——那种和你的词毫无关系的话，等于自爆是卧底/白板。绕，是换个偏门角度说【这个词】，不是换个话题。",
+  en: "This game is about wit and wordplay; the whole joy is in the guessing. A strong clue is clever, oblique, and layered: use homophones, hidden spellings, completing a set phrase, near-synonym leaps, allusions (a lyric / film line / idiom / famous name), puns, acting out a scene, or seizing the one essential trait — to point at your word INDIRECTLY, so \"those in the know catch it, while the undercover and the blank can't crack it.\" Keep three don'ts: (1) No flat definitions (\"a kind of fruit / a reference book / a means of transport\") — dull, and the easiest for others to copy; (2) No leaked letters — never use any letter-string of the word, nor an obvious homophone/root of it; (3) No echoing — don't repeat or reskin what someone else said; find your own fresh angle. And stop short: too blunt and the undercover is out in one round, the game ends, no fun — better clever-and-veiled than a detail that pins you instantly. MOST IMPORTANT: however oblique, your clue must still be GENUINELY ABOUT your word — a true, checkable pointer to it, so someone who knows the word nods \"yes, that's it.\" Never drift into a generic, fits-anything boast (\"I'm the one who steals the spotlight\", \"everyone's focused on the fruit but I show up uninvited\") — a line unrelated to your word outs you as the undercover/blank. Oblique means an off-beat angle ON your word, not a change of subject.",
 };
 
 // The ten describing techniques + callbacks + examples, injected into the
@@ -126,7 +126,7 @@ function vaguenessTip(round: number, locale: Locale, position?: number): string 
     if (round === 1) {
       return "Others have already spoken — read the table. IMPORTANT: if the earlier clues have ALREADY made the word easy to guess, do NOT add one more detail that nails it down. If the undercover gets voted out, they read the word straight off the board and steal the win with their last-chance guess — so don't be the one who completes the picture. Build on (or riff off) the others, but take a HAZIER, more oblique angle: true for this kind of thing, yet not locking the word in.";
     }
-    return "From round two on, read what's already on the table first. If the word is already well established (an outsider could now guess it), go the OTHER way — be vaguer and more oblique, drop a small smokescreen, and never add the detail that confirms it (that's what hands a caught undercover the word). Only if the word is still genuinely unclear should you firm up slightly to build trust. Never blurt the key trait.";
+    return "From round two on, read what's already on the table first. If the word is already well established (an outsider could now guess it), go the OTHER way — be vaguer and more oblique, drop a small smokescreen (but one that's still a true, off-beat angle on YOUR word — never an unrelated line that fits anything), and never add the detail that confirms it (that's what hands a caught undercover the word). Only if the word is still genuinely unclear should you firm up slightly to build trust. Never blurt the key trait.";
   }
   if (round === 1 && (position == null || position <= 1)) {
     return "你很早发言、没线索可借。争取【一发入魂】：给一个巧妙、间接的描述(用典/谐音/场景/双关皆可)，既藏住身份、又埋下只有懂的人能品到的指向。别用“一种X”这种干巴定义，也别报能直接锁定的细节。";
@@ -134,7 +134,7 @@ function vaguenessTip(round: number, locale: Locale, position?: number): string 
   if (round === 1) {
     return "前面有人发言了，先看桌面。【关键】如果前面几句已经把这个词描得八九不离十（外人都能猜出来了），你就别再补一刀、添一个让词更坐实的特征——否则万一卧底被票出去，他照着这些描述就能猜中词、反杀翻盘，别当那个把词描全的人。承接或现挂他们的话，但【另起一个更虚、更绕的角度】，对这类事物成立、却不帮着把词锁死。";
   }
-  return "第二轮往后，先看看桌面上已有的描述。如果这个词已经被描得很清楚了（外人都能猜出来），就【反过来更绕、更虚】，放个小烟雾弹，绝不再添那个把词坐实的特征（那等于把词亲手送给被票出的卧底）；只有当这个词还真没被点破时，才可以稍微具体一点来建立信任。绝不直白报出关键特征。";
+  return "第二轮往后，先看看桌面上已有的描述。如果这个词已经被描得很清楚了（外人都能猜出来），就【反过来更绕、更虚】，放个小烟雾弹（但烟雾弹也得是你这个词的一个偏门角度、对它成立，绝不能跑题成一句和你的词无关的话），绝不再添那个把词坐实的特征（那等于把词亲手送给被票出的卧底）；只有当这个词还真没被点破时，才可以稍微具体一点来建立信任。绝不直白报出关键特征。";
 }
 
 export interface DescribePayload extends AgentContext {
@@ -494,7 +494,13 @@ ${STRATEGY.zh}
 // student and gives sharp, board-specific tactical advice — so the student
 // genuinely improves. It reasons only from the PUBLIC clues (it never cheats by
 // being told who the spy is), like a strong player would.
-export interface CoachPayload extends AgentContext {
+// CoachPayload deliberately does NOT extend AgentContext. The masterclass coach
+// must reason ONLY from the public clues (allClues) plus the human student's own
+// role/word — never from any agent's private memory / banked learnings / inner
+// reasoning. Keeping those fields out of the TYPE makes that leak structurally
+// impossible (not just unused).
+export interface CoachPayload {
+  locale?: Locale;
   decision: "describe" | "vote";
   name: string;
   role: "civilian" | "spy" | "blank";
