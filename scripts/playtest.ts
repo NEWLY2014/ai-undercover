@@ -12,6 +12,7 @@ import {
   aliveOf,
   buildPlayers,
   checkWinner,
+  clueLeaksWord,
   isDuplicateClue,
   isLazyClue,
   maxSpyCount,
@@ -98,20 +99,10 @@ async function callAgent(kind: string, payload: Record<string, unknown>, gameId:
   return null;
 }
 
-// Conservative word-leak detector (strong leaks only, to avoid noise).
+// Use the SAME guard the live game uses (engine.clueLeaksWord), so leak findings
+// here track the real product behavior.
 function leaks(clue: string, word: string, locale: Locale): boolean {
-  if (!clue || !word) return false;
-  const c = clue.toLowerCase();
-  const w = word.toLowerCase();
-  if (locale === "en") {
-    return c.includes(w) || w.split(/\s+/).some((tok) => tok.length >= 3 && c.includes(tok));
-  }
-  // zh: full word substring, or any 2 consecutive chars of the word appear in the clue
-  if (clue.includes(word)) return true;
-  for (let i = 0; i + 2 <= word.length; i++) {
-    if (clue.includes(word.slice(i, i + 2))) return true;
-  }
-  return false;
+  return clueLeaksWord(clue, word, locale);
 }
 
 interface GameConfig {
@@ -183,13 +174,17 @@ async function playGame(cfg: GameConfig, gameId: string): Promise<void> {
         if (!res) continue;
         const c = String(res.clue || "").trim();
         if (!c) { finding("empty clue from LLM", `${sp.name} r${round}`); continue; }
-        if (sp.role !== "blank" && leaks(c, sp.word, cfg.locale)) finding("WORD LEAK in clue", `word="${sp.word}" clue="${c}"`);
-        if (!isDuplicateClue(c, said) && !isLazyClue(c)) { clue = c; got = true; break; }
+        // Mirror the live leak guard: reject + re-ask a leaking clue.
+        const lk = sp.role !== "blank" && leaks(c, sp.word, cfg.locale);
+        if (!isDuplicateClue(c, said) && !isLazyClue(c) && !lk) { clue = c; got = true; break; }
         if (isLazyClue(c)) finding("lazy clue from LLM (after guard)", `"${c}"`);
         if (isDuplicateClue(c, said)) finding("duplicate clue from LLM", `"${c}"`);
-        clue = c;
+        if (lk) finding("leak re-asked", `word="${sp.word}" clue="${c}"`);
+        if (!lk) clue = c;
       }
       if (!got && clue === "(...)") finding("describe failed all attempts", `${sp.name} r${round}`);
+      // A leak that survives every attempt is the real defect.
+      if (sp.role !== "blank" && leaks(clue, sp.word, cfg.locale)) finding("WORD LEAK survived guard", `word="${sp.word}" clue="${clue}"`);
       sp.clues.push(clue);
       said.push(clue);
       transcript.push(transcriptLine(round, sp.name, clue, cfg.locale));
@@ -217,7 +212,7 @@ async function playGame(cfg: GameConfig, gameId: string): Promise<void> {
     }
 
     // ── VOTE (concurrent, mirrors castVotes) ──
-    const allClues = publicTranscript(players, cfg.locale);
+    const allClues = publicTranscript(players, cfg.locale, true); // mark eliminated players for voting
     const tallied = await castVotesConcurrent(players, aliveOf(players).map((p) => p.name), allClues, cfg, gameId, coachSeat);
     if (!tallied) { finding("vote produced no casts at all"); break; }
     let result = tallyVotes(players);
@@ -239,7 +234,7 @@ async function playGame(cfg: GameConfig, gameId: string): Promise<void> {
         sp.clues.push(clue);
         pkTranscript.push(transcriptLine(round, sp.name, clue, cfg.locale, true));
       }
-      await castVotesConcurrent(players, result.topNames, publicTranscript(players, cfg.locale), cfg, gameId, coachSeat, `r${round}-pk`);
+      await castVotesConcurrent(players, result.topNames, publicTranscript(players, cfg.locale, true), cfg, gameId, coachSeat, `r${round}-pk`);
       const second = tallyVotes(players);
       if (second.tie) {
         // nobody eliminated this round — continue

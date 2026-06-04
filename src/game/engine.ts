@@ -102,6 +102,30 @@ export function isLazyClue(clue: string): boolean {
   return /^(same(\s+(as|here))?|ditto|likewise|agreed?|me too|as (above|said)|what .{0,12} said|\+1)\b/i.test(t);
 }
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// True if the clue contains the agent's OWN word — i.e. a leak. A structural
+// reject (re-ask the same agent), like isDuplicateClue/isLazyClue: it never
+// decides content, it just refuses a clue that gives the word away.
+export function clueLeaksWord(clue: string, word: string, locale: "zh" | "en" = "zh"): boolean {
+  if (!word) return false; // blank players have no word (word === "")
+  if (locale === "en") {
+    // whole word/phrase (any length): catches "mouse" in "a certain mouse's better half".
+    if (new RegExp("\\b" + escapeRegExp(word) + "\\b", "i").test(clue)) return true;
+    // a salient half of a multi-word / hyphenated word ("Ice cream" → "cream",
+    // "Spider-Man" → "spider"). Length ≥ 4 avoids false positives on short tokens
+    // like "man" (Iron Man) / "ice"; short single words are still caught above.
+    return word
+      .split(/[\s-]+/)
+      .filter((tok) => tok.length >= 4)
+      .some((tok) => new RegExp("\\b" + escapeRegExp(tok) + "\\b", "i").test(clue));
+  }
+  // zh: full-word substring. A single-char check would false-positive (西 in 西安).
+  return clue.includes(word);
+}
+
 export function speakingOrder(players: Player[]): number[] {
   return shuffle(aliveOf(players).map((p) => p.id));
 }
@@ -162,13 +186,19 @@ export function transcriptLine(
 }
 
 // Build the public transcript (clues only — never private reasoning) for prompts.
-export function publicTranscript(players: Player[], locale: "zh" | "en" = "zh"): string {
+// markEliminated (used only for the VOTE prompt) tags out players' names with a
+// (out)/（已出局）marker so the agent stops voting for someone already eliminated,
+// while keeping their clues as voting evidence. Default false keeps every other
+// call site (describe/reflect/spyGuess) byte-identical.
+export function publicTranscript(players: Player[], locale: "zh" | "en" = "zh", markEliminated = false): string {
   // Reconstructed from each player's clue list, round by round.
   const maxRounds = Math.max(0, ...players.map((p) => p.clues.length));
   const lines: string[] = [];
   for (let r = 0; r < maxRounds; r++) {
     for (const p of players) {
-      if (p.clues[r] != null) lines.push(transcriptLine(r + 1, p.name, p.clues[r], locale));
+      if (p.clues[r] == null) continue;
+      const name = markEliminated && !p.alive ? (locale === "en" ? `${p.name} (out)` : `${p.name}（已出局）`) : p.name;
+      lines.push(transcriptLine(r + 1, name, p.clues[r], locale));
     }
   }
   return lines.join("\n");
