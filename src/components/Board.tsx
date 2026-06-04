@@ -79,8 +79,13 @@ function LogItem({ e, showReasoning }: { e: LogEntry; showReasoning: boolean }) 
       <div style={S.logVote}>
         <span style={S.logAvatar}>{e.emoji}</span>
         <span>
-          <b style={{ color: "var(--ink)" }}>{e.name}</b> {t("votedFor")} <b style={{ color: "var(--amber)" }}>{e.target}</b>：
-          <span style={{ color: "var(--muted)" }}>{e.reason}</span>
+          <b style={{ color: "var(--ink)" }}>{e.name}</b> {t("votedFor")} <b style={{ color: "var(--amber)" }}>{e.target}</b>
+          {/* The stated vote reason is an agent insight — shown only in developer mode, like the 💭 reasoning. */}
+          {showReasoning && e.reason && (
+            <>
+              ：<span style={{ color: "var(--muted)" }}>{e.reason}</span>
+            </>
+          )}
           {showReasoning && e.reasoning && <div style={S.reasoning}>💭 {e.reasoning}</div>}
         </span>
       </div>
