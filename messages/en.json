@@ -100,6 +100,8 @@
     "guessHeadSpectator": "Your read",
     "guessHintEnded": "Game over — see if you guessed right:",
     "guessHintActive": "Who's the undercover? Tap a name to bet.",
+    "guessLocked": "🔒 Bet locked — now sit back and watch it play out.",
+    "guessClosed": "Betting is closed for this game (locked after round 1).",
     "spyTag": " · spy",
     "verdictRight": "🎯 You got it! The undercover was {name}",
     "verdictWrong": "❌ Not quite — the undercover was {name}",
