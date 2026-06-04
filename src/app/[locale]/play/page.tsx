@@ -151,7 +151,7 @@ export default function Home() {
             onGuess={setGuess}
             onDescribe={g.runDescribe}
             onVote={g.runVote}
-            onNext={g.nextRound}
+            onNext={g.nextRoundAndDescribe}
             onRestart={g.restart}
             onPlayAgain={() => {
               setGuess(null);
