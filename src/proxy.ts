@@ -1,3 +1,9 @@
+// Next.js 16 renamed the `middleware` file convention to `proxy` (this file was
+// src/middleware.ts). For next-intl's default-export createMiddleware setup the
+// migration is just the file rename — the import stays `next-intl/middleware`
+// and the config/matcher are unchanged.
+//   https://nextjs.org/docs/messages/middleware-to-proxy
+//   https://next-intl.dev/docs/routing/middleware
 import createMiddleware from "next-intl/middleware";
 import { routing } from "./i18n/routing";
 

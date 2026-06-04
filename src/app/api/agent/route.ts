@@ -38,7 +38,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Provider = "ollama" | "anthropic" | "volcengine" | "minimax";
-const PROVIDER: Provider = (process.env.UNDERCOVER_PROVIDER as Provider) || "ollama";
+// MiniMax (MiniMax-M2, OpenAI-compatible) is THE production backend — every model
+// call goes through this server-side route, so this is the single switch. Default
+// to minimax so a missing UNDERCOVER_PROVIDER can never silently fall back to the
+// local-dev ollama; the other providers stay available via the env var.
+const PROVIDER: Provider = (process.env.UNDERCOVER_PROVIDER as Provider) || "minimax";
 const OLLAMA_HOST = process.env.UNDERCOVER_OLLAMA_HOST || "http://127.0.0.1:11434";
 const OLLAMA_MODEL = process.env.UNDERCOVER_OLLAMA_MODEL || "qwen2.5:3b";
 const ANTHROPIC_MODEL = process.env.UNDERCOVER_DEFAULT_MODEL || "claude-sonnet-4-6";
