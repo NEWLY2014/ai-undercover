@@ -10,6 +10,7 @@ import {
   aliveOf,
   buildPlayers,
   checkWinner,
+  clueLeaksWord,
   isDuplicateClue,
   isLazyClue,
   pickBlankIndex,
@@ -54,12 +55,9 @@ async function call(kind: string, payload: Record<string, unknown>): Promise<Rec
 function ctx(p: Player) {
   return { thinkingStyle: p.thinkingStyle, attributes: p.attributes, learnings: p.recalledLearnings, memory: p.workingMemory, isBlank: p.role === "blank" };
 }
+// Use the SAME guard the live game uses, so this run is a real regression check.
 function leaks(clue: string, word: string): boolean {
-  if (!clue || !word) return false;
-  if (LOCALE === "en") return clue.toLowerCase().includes(word.toLowerCase());
-  if (clue.includes(word)) return true;
-  for (let i = 0; i + 2 <= word.length; i++) if (clue.includes(word.slice(i, i + 2))) return true;
-  return false;
+  return clueLeaksWord(clue, word, LOCALE);
 }
 
 async function main() {
@@ -101,12 +99,16 @@ async function main() {
         reasoning = String(res.reasoning || "").trim();
         if (res.memoryUpdate) sp.workingMemory = String(res.memoryUpdate);
         if (!c) { note(`empty clue ${sp.name} r${round}`); continue; }
-        if (sp.role !== "blank" && leaks(c, sp.word)) note(`WORD LEAK: ${sp.name} "${c}" (word "${sp.word}")`);
-        if (!isDuplicateClue(c, said) && !isLazyClue(c)) { clue = c; break; }
+        // Mirror the live leak guard: reject + re-ask a leaking clue (and dup/lazy).
+        const lk = sp.role !== "blank" && leaks(c, sp.word);
+        if (!isDuplicateClue(c, said) && !isLazyClue(c) && !lk) { clue = c; break; }
         if (isLazyClue(c)) note(`lazy clue ${sp.name}: "${c}"`);
         if (isDuplicateClue(c, said)) note(`dup clue ${sp.name}: "${c}"`);
-        clue = c;
+        if (lk) note(`leak re-asked: ${sp.name} "${c}"`);
+        if (!lk) clue = c; else if (clue === "(...)") clue = c;
       }
+      // A leak that SURVIVES the guard (all attempts leaked) is the real defect to count.
+      if (sp.role !== "blank" && leaks(clue, sp.word)) note(`WORD LEAK survived guard: ${sp.name} "${clue}" (word "${sp.word}")`);
       sp.clues.push(clue); said.push(clue); transcript.push(transcriptLine(round, sp.name, clue, LOCALE));
       const tag = sp.role === "spy" ? "🕵 SPY " : sp.role === "blank" ? "⬜ BLANK" : "👤 civ ";
       log(`  ${tag} ${sp.name.padEnd(6)} “${clue}”`);
@@ -114,7 +116,7 @@ async function main() {
     }
 
     log(`\n────────── ROUND ${round} · vote ──────────`);
-    const allClues = publicTranscript(players, LOCALE);
+    const allClues = publicTranscript(players, LOCALE, true); // mark eliminated players
     const adv = await call("coach", { locale: LOCALE, decision: "vote", name: coachSeat.name, role: coachSeat.role, word: coachSeat.word, allClues, aliveNames: aliveOf(players).map((p) => p.name), round });
     if (aliveOf(players).some((p) => p.id === coachSeat.id)) log(`  🧑‍🏫 COACH→${coachSeat.name} (vote): ${String(adv?.tip || "(none)").trim()}`);
     const alive = aliveOf(players);

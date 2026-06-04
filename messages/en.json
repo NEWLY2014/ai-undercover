@@ -143,6 +143,7 @@
     "clueEllipsis": "(…)",
     "errLazy": "You can't say things like \"same as above\" — give a real one-line description.",
     "errDup": "You can't repeat someone else's clue word-for-word — try a different angle.",
+    "errLeak": "Your clue can't contain your own word — say it another way.",
     "errDescribe": "Describe phase error: {msg} (click \"Start this round\" to retry).",
     "errVote": "Vote phase error: {msg}"
   },

@@ -8,6 +8,7 @@ import {
   aliveOf,
   buildPlayers,
   checkWinner,
+  clueLeaksWord,
   isDuplicateClue,
   isLazyClue,
   pickBlankIndex,
@@ -316,6 +317,10 @@ export function useGameLoop() {
               setError(t("errDup"));
               continue;
             }
+            if (clueLeaksWord(input, sp.word, localeRef.current)) {
+              setError(t("errLeak"));
+              continue;
+            }
             setError(null);
             clue = input;
             break;
@@ -348,11 +353,16 @@ export function useGameLoop() {
             reasoning = res.reasoning ?? null;
             if (res.memoryUpdate) sp.workingMemory = res.memoryUpdate.toString();
             const c = (res.clue || "").toString().trim();
-            if (c && !isDuplicateClue(c, said) && !isLazyClue(c)) {
+            if (!c) continue;
+            const leaks = clueLeaksWord(c, sp.word, localeRef.current);
+            if (!isDuplicateClue(c, said) && !isLazyClue(c) && !leaks) {
               clue = c;
               break;
             }
-            if (c) clue = c; // keep last attempt as fallback
+            // Fallback: prefer ANY non-leaking attempt; only keep a leaking one if
+            // we have nothing else yet (still the agent's own words, never substituted).
+            if (!leaks) clue = c;
+            else if (clue === t("clueStuck")) clue = c;
           }
         }
 
@@ -614,7 +624,8 @@ export function useGameLoop() {
 
     try {
       const aliveNames = aliveOf(working).map((p) => p.name);
-      await castVotes(working, aliveNames, publicTranscript(working, localeRef.current), `r${r}`);
+      // markEliminated=true tags out players in the transcript so agents stop voting for them.
+      await castVotes(working, aliveNames, publicTranscript(working, localeRef.current, true), `r${r}`);
       const first = tallyVotes(working);
       addLog({ type: "tally", text: t("tallyResult", { tally: fmtTally(first.tally) }) });
       track("tally", { round: r, stage: "first", tie: first.tie, top: first.topNames });
@@ -639,31 +650,54 @@ export function useGameLoop() {
           let clue: string;
           let reasoning: string | null = null;
           if (sp.kind === "human") {
-            clue = (await waitForHuman("describe", sp)).trim() || t("cluePkAdd");
+            // A cornered tied player can't leak the word in the decisive PK clue either.
+            clue = t("cluePkAdd");
+            while (true) {
+              const input = (await waitForHuman("describe", sp)).trim();
+              if (!input) break; // empty → keep the placeholder
+              if (clueLeaksWord(input, sp.word, localeRef.current)) {
+                setError(t("errLeak"));
+                continue;
+              }
+              setError(null);
+              clue = input;
+              break;
+            }
           } else {
-            const res = await withRetry(() =>
-              agentDescribe(
-                {
-                  locale: localeRef.current,
-                  name: sp.name,
-                  trait: sp.trait,
-                  word: sp.word,
-                  round: r,
-                  transcript: transcript.join("\n"),
-                  position: 2,
-                  speakerCount: first.topNames.length,
-                  thinkingStyle: sp.thinkingStyle,
-                  attributes: sp.attributes,
-                  learnings: sp.recalledLearnings,
-                  memory: sp.workingMemory,
-                  isBlank: sp.role === "blank",
-                },
-                sp.model,
-              ),
-            );
-            clue = (res.clue || "").toString().trim() || t("clueEllipsis");
-            reasoning = res.reasoning ?? null;
-            if (res.memoryUpdate) sp.workingMemory = res.memoryUpdate.toString();
+            // The PK clue is the riskiest leak site (a suspected player speaking right
+            // before the decisive revote) — re-ask up to twice if it leaks.
+            clue = t("clueEllipsis");
+            for (let attempt = 0; attempt < 2; attempt++) {
+              const res = await withRetry(() =>
+                agentDescribe(
+                  {
+                    locale: localeRef.current,
+                    name: sp.name,
+                    trait: sp.trait,
+                    word: sp.word,
+                    round: r,
+                    transcript: transcript.join("\n"),
+                    position: 2,
+                    speakerCount: first.topNames.length,
+                    thinkingStyle: sp.thinkingStyle,
+                    attributes: sp.attributes,
+                    learnings: sp.recalledLearnings,
+                    memory: sp.workingMemory,
+                    isBlank: sp.role === "blank",
+                  },
+                  sp.model,
+                ),
+              );
+              reasoning = res.reasoning ?? null;
+              if (res.memoryUpdate) sp.workingMemory = res.memoryUpdate.toString();
+              const c = (res.clue || "").toString().trim();
+              if (!c) continue;
+              if (!clueLeaksWord(c, sp.word, localeRef.current)) {
+                clue = c;
+                break;
+              }
+              if (clue === t("clueEllipsis")) clue = c; // keep a leaking clue only if nothing else
+            }
           }
           const i2 = working.findIndex((p) => p.id === sp.id);
           working[i2] = { ...working[i2], clues: [...working[i2].clues, clue], lastReasoning: reasoning };
@@ -674,7 +708,7 @@ export function useGameLoop() {
         }
         setSpeakingId(null);
         addLog({ type: "phase", text: t("pkPhase", { round: r }), round: r });
-        await castVotes(working, first.topNames, publicTranscript(working, localeRef.current), `r${r}-pk`, first.topNames);
+        await castVotes(working, first.topNames, publicTranscript(working, localeRef.current, true), `r${r}-pk`, first.topNames);
         const second = tallyVotes(working);
         addLog({ type: "tally", text: t("pkTally", { tally: fmtTally(second.tally) }) });
         if (second.tie) {
