@@ -109,6 +109,7 @@ function LogItem({ e, showReasoning }: { e: LogEntry; showReasoning: boolean }) 
 function Controls({
   phase,
   busy,
+  reflecting,
   onDescribe,
   onVote,
   onNext,
@@ -117,6 +118,7 @@ function Controls({
 }: {
   phase: Phase;
   busy: boolean;
+  reflecting: boolean;
   onDescribe: () => void;
   onVote: () => void;
   onNext: () => void;
@@ -157,11 +159,15 @@ function Controls({
   if (phase === "gameover")
     return (
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <button style={S.actBtn} onClick={onPlayAgain}>
-          {t("ctlRestart")}
+        {/* Don't let the player start the next game until every AI has finished
+            reviewing and writing its lessons to memory — otherwise the next game
+            would recall an incomplete set of learnings. */}
+        <button style={reflecting ? S.actBtnDim : S.actBtn} disabled={reflecting} onClick={onPlayAgain}>
+          {reflecting ? t("ctlReflecting") : t("ctlRestart")}
         </button>
         <button
           onClick={onRestart}
+          disabled={reflecting}
           style={{
             fontFamily: "var(--font-mono)",
             fontSize: 13,
@@ -170,7 +176,8 @@ function Controls({
             border: "1px solid var(--line)",
             borderRadius: 10,
             padding: "9px 14px",
-            cursor: "pointer",
+            cursor: reflecting ? "not-allowed" : "pointer",
+            opacity: reflecting ? 0.5 : 1,
           }}
         >
           {t("ctlNewSettings")}
@@ -263,6 +270,7 @@ export interface BoardProps {
   coachLoading: boolean;
   suspicion: SuspicionSnapshot[];
   suspecting: boolean;
+  reflecting: boolean;
   order: number[];
   guess: number | null;
   onGuess: (id: number) => void;
@@ -284,7 +292,7 @@ const PHASE_KEY: Record<string, string> = {
 };
 
 export default function Board(props: BoardProps) {
-  const { players, log, busy, speakingId, phase, round, winner, error, pair, humanTurn, guess, devMode, tutorial, coachTip, coachLoading, suspicion, suspecting, order } = props;
+  const { players, log, busy, speakingId, phase, round, winner, error, pair, humanTurn, guess, devMode, tutorial, coachTip, coachLoading, suspicion, suspecting, reflecting, order } = props;
   const t = useTranslations("Board");
   // Order seats by this round's speaking order; eliminated players sink to the end.
   const orderPos = new Map(order.map((id, i) => [id, i]));
@@ -355,6 +363,7 @@ export default function Board(props: BoardProps) {
           <Controls
             phase={phase}
             busy={busy}
+            reflecting={reflecting}
             onDescribe={props.onDescribe}
             onVote={props.onVote}
             onNext={props.onNext}

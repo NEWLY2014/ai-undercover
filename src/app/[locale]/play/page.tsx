@@ -146,6 +146,7 @@ export default function Home() {
             coachLoading={g.coachLoading}
             suspicion={g.suspicion}
             suspecting={g.suspecting}
+            reflecting={g.reflecting}
             order={g.order}
             guess={guess}
             onGuess={setGuess}

@@ -78,6 +78,10 @@ export function useGameLoop() {
   const roundRef = useRef(1);
   const devModeRef = useRef(false);
   const tutorialRef = useRef(false);
+  // Rounds whose "describe phase" divider has already been logged. Lets a retry of
+  // a failed describe phase (re-clicking "start this round") skip re-printing the
+  // "Round N · describe" header. Reset per game in startGame.
+  const describeLoggedRef = useRef<Set<number>>(new Set());
   // The game's language, set once at start; threaded into every agent prompt and
   // the transcript format so an /en game is played entirely in English.
   const localeRef = useRef<"zh" | "en">("zh");
@@ -235,6 +239,7 @@ export function useGameLoop() {
     setPair(pairChosen);
     setRound(1);
     roundRef.current = 1;
+    describeLoggedRef.current = new Set();
     const ord = speakingOrder(ps);
     setOrder(ord);
     orderRef.current = ord;
@@ -281,7 +286,12 @@ export function useGameLoop() {
     setError(null);
     setPhase("describing");
     const r = roundRef.current;
-    addLog({ type: "phase", text: t("describePhase", { round: r }), round: r });
+    // Only print the "Round N · describe" divider once per round. On a retry after a
+    // mid-phase failure (re-clicking "start this round"), the divider is already there.
+    if (!describeLoggedRef.current.has(r)) {
+      describeLoggedRef.current.add(r);
+      addLog({ type: "phase", text: t("describePhase", { round: r }), round: r });
+    }
 
     const working = playersRef.current.map((p) => ({ ...p }));
     const speakIds = orderRef.current.filter((id) => working.find((p) => p.id === id)?.alive);
