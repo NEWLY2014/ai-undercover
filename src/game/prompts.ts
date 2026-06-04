@@ -73,8 +73,8 @@ const MEMORY_INSTRUCTION: Record<Locale, string> = {
 
 // Make the agent sound like a real person at the table, not a riddle reader.
 const HUMANLIKE: Record<Locale, string> = {
-  zh: "说话要像真人在牌桌上聊天：口语、自然、简短，符合你的性格；可以顺着接别人的话、表个态度或调侃一句(如“我跟老K想的差不多”“这说法有点虚啊”)，但别暴露词。别每句都是工整的谜面式描述。",
-  en: "Talk like a real person chatting at the table: casual, natural, short, true to your personality. Feel free to riff on what someone else said, take a stance, or toss in a light jab (\"I'm thinking the same as Jack\", \"that clue sounds awfully vague\") — but don't give your word away. Don't make every line a prim, riddle-style definition.",
+  zh: "说话要像真人在牌桌上聊天：口语、自然、简短，符合你的性格；可以顺着别人的话题接一句、表个态度或调侃一下(如“我跟老K想的差不多”“这玩意儿我可太熟了”)，但别暴露词。【绝不要把游戏的元策略说出口】：不要点评别人“说得太具体／太明显／太虚／容易被票”，不要提“挨刀／暴露／藏／安全／危险／出局”这类话，也不要宣布“我说得含糊点／我先不暴露”——这些只是你心里的盘算，写进 reasoning，绝不当成台词说出来。要调侃就冲着【话题本身】，而不是冲着别人描述得够不够隐蔽。别每句都是工整的谜面式描述。",
+  en: "Talk like a real person chatting at the table: casual, natural, short, true to your personality. You can riff on the topic, take a stance, or tease a little (\"same as Jack, basically\", \"oh I know this one way too well\") — but don't give your word away. NEVER say the game's meta-strategy out loud: don't comment that someone is \"too specific / too obvious / too vague / about to get voted out\", don't mention \"getting knifed / exposed / hiding / safe / risky / eliminated\", and don't announce that you're \"keeping it vague / not exposing myself\" — that's your private calculation, it goes in reasoning ONLY, never in the line you actually say. Any teasing is about the TOPIC itself, not about how well-hidden someone's clue is. Don't make every line a prim, riddle-style definition.",
 };
 
 // Core global strategy: stop giving the word away in round one (which gets the
