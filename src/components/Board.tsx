@@ -291,10 +291,11 @@ export default function Board(props: BoardProps) {
   }, [log, phase]);
 
   const hasHuman = players.some((p) => p.kind === "human");
-  // Agent private reasoning (💭) is shown ONLY in developer mode or in the
-  // masterclass (where seeing how strong players think is the teaching point).
-  // With dev mode off it is never shown — not even once the game is over.
-  const showReasoning = devMode || tutorial;
+  // Agent private reasoning (💭) and the memory panel are a developer-mode insight
+  // ONLY. In the masterclass we deliberately hide the AIs' thinking — the coach is
+  // the teacher there, guiding the human step by step — so the student learns to
+  // read the table themselves instead of reading the AIs' minds.
+  const showReasoning = devMode;
   const spyName = players.find((p) => p.isSpy)?.name ?? "";
   const guessCorrect = winner != null && guess != null && players.find((p) => p.id === guess)?.isSpy;
   const phaseTag = PHASE_KEY[phase] ? t(PHASE_KEY[phase], { round }) : "";
