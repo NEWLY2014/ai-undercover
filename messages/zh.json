@@ -100,6 +100,8 @@
     "guessHeadSpectator": "你的推理",
     "guessHintEnded": "本局已结束，看看你押对了没：",
     "guessHintActive": "你觉得谁是卧底？点一个名字下注。",
+    "guessLocked": "🔒 下注已锁定，静待本局结果。",
+    "guessClosed": "本局下注已截止（首轮描述结束后不可下注）。",
     "spyTag": " · 卧底",
     "verdictRight": "🎯 你押对了！卧底就是 {name}",
     "verdictWrong": "❌ 没猜中，卧底其实是 {name}",

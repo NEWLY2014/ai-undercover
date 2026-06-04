@@ -303,6 +303,10 @@ export default function Board(props: BoardProps) {
   const showReasoning = devMode;
   const spyName = players.find((p) => p.isSpy)?.name ?? "";
   const guessCorrect = winner != null && guess != null && players.find((p) => p.id === guess)?.isSpy;
+  // Spectator bet locks once round 1's clues are all in ("首轮描述结束后锁定"): you may
+  // place or change your bet all through round-1 describing, then it is final — so the
+  // bet is a real read of the table, not a risk-free last-second pick.
+  const betLocked = round > 1 || (phase !== "ready" && phase !== "describing");
   const phaseTag = PHASE_KEY[phase] ? t(PHASE_KEY[phase], { round }) : "";
 
   return (
@@ -361,20 +365,30 @@ export default function Board(props: BoardProps) {
         <div style={S.guessHead}>{hasHuman ? t("guessHeadHuman") : t("guessHeadSpectator")}</div>
         {!hasHuman && (
           <>
-            <p style={S.guessHint}>{winner ? t("guessHintEnded") : t("guessHintActive")}</p>
+            <p style={S.guessHint}>
+              {winner
+                ? t("guessHintEnded")
+                : betLocked
+                ? guess != null
+                  ? t("guessLocked")
+                  : t("guessClosed")
+                : t("guessHintActive")}
+            </p>
             <div style={S.guessChips}>
               {players.map((p) => {
                 const sel = guess === p.id;
                 const revealSpy = winner != null && p.isSpy;
+                const interactive = !winner && !betLocked;
                 return (
                   <button
                     key={p.id}
-                    onClick={() => !winner && props.onGuess(p.id)}
+                    onClick={() => interactive && props.onGuess(p.id)}
                     style={{
                       ...S.chip,
                       ...(sel ? S.chipSel : {}),
                       ...(revealSpy ? S.chipSpy : {}),
                       opacity: p.alive || winner ? 1 : 0.4,
+                      cursor: interactive ? "pointer" : "default",
                     }}
                   >
                     {p.emoji} {p.name}
@@ -395,7 +409,7 @@ export default function Board(props: BoardProps) {
             {winner ? (winner === "civ" ? t("resultCiv") : t("resultSpy")) : t("inProgress")}
           </p>
         )}
-        {pair && (!hasHuman || winner) && (
+        {pair && (winner || (!hasHuman && devMode)) && (
           <div style={S.wordsBox}>
             <div style={S.wordsTitle}>
               {t("wordsTitle")}

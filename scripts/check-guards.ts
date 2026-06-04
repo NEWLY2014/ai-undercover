@@ -24,6 +24,14 @@ eq("en: clean clue", clueLeaksWord("the squeaky thing behind the wall", "Mouse",
 eq("zh: full word", clueLeaksWord("夏天买个西瓜消暑", "西瓜", "zh"), true);
 eq("zh: no false positive (西安)", clueLeaksWord("我去西安出差了", "西瓜", "zh"), false);
 eq("zh: blank", clueLeaksWord("随便说点啥", "", "zh"), false);
+// strengthened zh guard: 拆字 (every char appears) + a quoted single char
+eq("zh: 拆字 both chars (可+乐)", clueLeaksWord("「可」是能的意思，「乐」是开心的意思——能让不快乐的人快乐起来", "可乐", "zh"), true);
+eq("zh: quoted single char 「可」", clueLeaksWord("提示：第一个字是「可」", "可乐", "zh"), true);
+eq("zh: only 可 (in 可以) — not a leak", clueLeaksWord("它可以解渴", "可乐", "zh"), false);
+eq("zh: only 乐 (in 音乐) — not a leak", clueLeaksWord("听音乐的时候常喝它", "可乐", "zh"), false);
+eq("zh: clean clue, no chars", clueLeaksWord("一种黑色的碳酸饮料", "可乐", "zh"), false);
+eq("zh: both chars of 牛奶 present", clueLeaksWord("牛身上挤出来的，能产奶", "牛奶", "zh"), true);
+eq("zh: 西安 still not 西瓜 (瓜 absent)", clueLeaksWord("听说西边的安某人", "西瓜", "zh"), false);
 
 // ── publicTranscript dead-marking ──
 const profiles: Array<AgentProfile & { kind: "ai" | "human" }> = [

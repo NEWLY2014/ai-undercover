@@ -122,8 +122,24 @@ export function clueLeaksWord(clue: string, word: string, locale: "zh" | "en" = 
       .filter((tok) => tok.length >= 4)
       .some((tok) => new RegExp("\\b" + escapeRegExp(tok) + "\\b", "i").test(clue));
   }
-  // zh: full-word substring. A single-char check would false-positive (西 in 西安).
-  return clue.includes(word);
+  // zh: the word is short (usually 2 chars). Three leak shapes, ALL structural
+  // rejects (re-ask the same speaker) — they never decide content:
+  //   1. the whole word appears verbatim ("买可乐" for 可乐);
+  //   2. EVERY character of the word appears somewhere in the clue — this catches
+  //      拆字 leaks like 「『可』是能的意思，『乐』是开心的意思」(both 可 AND 乐 present)
+  //      WITHOUT over-rejecting a clue that merely reuses one common character
+  //      (西 in 西安 ≠ a leak of 西瓜, because 瓜 is absent; 可 in 可以 ≠ a leak of
+  //      可乐, because 乐 is absent);
+  //   3. a single character of the word is wrapped in quotes/brackets (an explicit
+  //      character call-out: 「可」/『乐』/"可"), even when the other characters
+  //      never appear.
+  if (clue.includes(word)) return true;
+  const chars = Array.from(new Set(Array.from(word)));
+  if (chars.every((ch) => clue.includes(ch))) return true;
+  const open = "「『《【“‘\"'";
+  const close = "」』》】”’\"'";
+  const emphasized = new RegExp("[" + open + "]\\s*(?:" + chars.map(escapeRegExp).join("|") + ")\\s*[" + close + "]");
+  return emphasized.test(clue);
 }
 
 export function speakingOrder(players: Player[]): number[] {
