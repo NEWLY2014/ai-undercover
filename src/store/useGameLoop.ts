@@ -780,6 +780,17 @@ export function useGameLoop() {
     addLog({ type: "system", text: t("nextRound", { next, alive: aliveOf(playersRef.current).length }) });
   }, []);
 
+  // One tap between rounds: advance the round AND immediately start its describe
+  // phase, instead of making the user click "next round" then "start describing".
+  // nextRound() updates roundRef/orderRef synchronously, so runDescribe() (which
+  // reads those refs) picks up the new round; React batches the two setPhase calls
+  // so the intermediate "ready" never renders. The game's FIRST round still starts
+  // from the explicit "ready" button after setup — this only fuses the between-round step.
+  const nextRoundAndDescribe = useCallback(() => {
+    nextRound();
+    void runDescribe();
+  }, [nextRound, runDescribe]);
+
   const restart = useCallback(() => {
     setPhase("setup");
     setHumanTurn(null);
@@ -821,6 +832,7 @@ export function useGameLoop() {
     runDescribe,
     runVote,
     nextRound,
+    nextRoundAndDescribe,
     restart,
     playAgain,
     submitHuman,
