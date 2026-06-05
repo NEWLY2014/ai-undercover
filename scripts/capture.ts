@@ -38,17 +38,23 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function call(kind: string, payload: Record<string, unknown>): Promise<Record<string, unknown> | null> {
   for (let a = 0; a < 4; a++) {
+    // Hard per-call timeout so one stalled MiniMax response can't hang the whole
+    // game (a no-timeout fetch froze earlier playtest runs indefinitely).
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 90_000);
     try {
       const res = await fetch(`${BASE}/api/agent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind, payload, gameId: "capture" }),
+        signal: ctrl.signal,
       });
       if (res.status === 429) { await sleep(2000); continue; }
       const data = (await res.json()) as { result?: Record<string, unknown>; error?: string };
       if (!res.ok) { if (a < 2) { await sleep(500); continue; } note(`API ${res.status} on ${kind}: ${(data?.error || "").slice(0, 80)}`); return null; }
       return data.result ?? null;
-    } catch (e) { if (a < 2) { await sleep(500); continue; } note(`network ${kind}: ${e instanceof Error ? e.message : e}`); }
+    } catch (e) { if (a < 2) { await sleep(500); continue; } note(`${ctrl.signal.aborted ? "timeout" : "network"} ${kind}: ${e instanceof Error ? e.message : e}`); }
+    finally { clearTimeout(to); }
   }
   return null;
 }
@@ -142,7 +148,9 @@ async function main() {
     out.alive = false;
     log(`  ❌ ELIMINATED: ${out.name} — was ${out.role.toUpperCase()} (word "${out.word || "blank"}")`);
     winner = checkWinner(players);
-    if (winner === "civ" && out.isSpy) {
+    // Comeback only if the spy is caught in round 1 (mirrors COMEBACK_MAX_ROUND in
+    // useGameLoop): a desperate early gamble, not a late lay-up off a painted board.
+    if (winner === "civ" && out.isSpy && round === 1) {
       const g = await call("spyGuess", { locale: LOCALE, name: out.name, trait: out.trait, allClues: publicTranscript(players, LOCALE), ...ctx(out) });
       const guess = String(g?.guess || "").trim();
       const norm = (s: string) => s.replace(/[\s。.,，!！?？「」"'']/g, "").toLowerCase();
