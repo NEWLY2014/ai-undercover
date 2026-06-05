@@ -32,6 +32,12 @@ yarn-error.log*
 *.tmp
 .ark_test.json
 .req.json
+# capture/playtest transcripts + PR/commit scratch (local only)
+.capture-*.txt
+.pr-body.md
+.commit-msg.txt
+# teamagent monitor local data
+/.teamagent/
 
 # local env files
 .env*.local
