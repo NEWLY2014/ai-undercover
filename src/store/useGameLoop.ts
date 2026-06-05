@@ -25,6 +25,14 @@ import { newGameId, track } from "@/lib/telemetry";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+// The spy's comeback guess is a desperate EARLY gamble, not a late lay-up. It's
+// only offered if the spy is caught within this many rounds, while little of the
+// civilians' word is on the table. Caught later, the clues have already painted
+// the word, so a guess would be a near-certainty (in playtests the late comeback
+// stole ~67% of deserved civilian wins) — so a later catch is a clean civ win.
+// This is a referee rule (like the win check), not agent decision logic.
+const COMEBACK_MAX_ROUND = 1;
+
 // Re-ask the SAME agent on transient failure — a retry of the same agent,
 // NOT a fallback that makes a choice for it.
 async function withRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
@@ -749,8 +757,9 @@ export function useGameLoop() {
       track("eliminate", { round: r, name: out.name, kind: out.kind, role: out.role, isSpy: out.isSpy });
 
       let w = checkWinner(working);
-      // If civilians just eliminated the last spy, that spy gets a comeback guess.
-      if (w === "civ" && out.isSpy) {
+      // If civilians just eliminated the last spy EARLY (round ≤ COMEBACK_MAX_ROUND),
+      // that spy gets a desperate comeback guess. Caught later = clean civilian win.
+      if (w === "civ" && out.isSpy && r <= COMEBACK_MAX_ROUND) {
         w = await runSpyGuess(out, working);
       }
       if (w === "civ" || w === "spy") {

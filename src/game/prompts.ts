@@ -205,7 +205,7 @@ ${TECHNIQUES.zh}
 1. 一句话、不超过 25 字；绝不能出现“${p.word}”这三个字或其明显谐音/拆字/偏旁(忌爆字)。
 2. 别干巴巴下定义、也别报能一眼锁定的细节；优先用上面的某种描法，巧妙、间接地指向你的词。
 3. 不要和别人(或自己上一轮)字面或换皮重复，自己另起新角度(忌跟描)。
-4. 如果你发现别人描述的东西和你的词对不上，你很可能就是卧底——更要往安全、巧妙含蓄的方向说，顺着大家、转移视线，别露馅。
+4. 如果你发现别人描述的东西和你的词对不上，你很可能就是少数派（卧底）。这时【千万别躲成一句空话】——越闪躲、越笼统、越是“我也差不多/就那么个东西”这种没内容的话，越像卧底、越先被票出去。正确打法是【主动混入】：从大家的描述里反推出多数人手里的那个词，然后给一句【贴着那个词、像自己人会说的】具体描述（可稍含蓄但必须有内容、像模像样），把自己藏进平民里，而不是第一个被盯上。
 5. 想不到特别巧的，也至少要含蓄、留余地，绝不直白泄底。
 
 ${HUMANLIKE.zh}
@@ -271,7 +271,7 @@ Requirements:
 1. One sentence, under ~15 words; never show the letters of "${p.word}", nor an obvious homophone/anagram/root of it (no leaked letters).
 2. Don't flatly define it or drop a pin-it detail; prefer one of the techniques above to point at your word cleverly and indirectly.
 3. Don't repeat others (or your own last round) literally or reskinned — find a fresh angle (no echoing).
-4. If you notice others' clues don't match your word, you're probably the undercover — steer even safer and more veiled, go with the flow, redirect, don't slip.
+4. If you notice others' clues don't match your word, you're probably the minority (the undercover). Do NOT hide behind an empty line — the vaguer and more evasive you are ("yeah, mine's about the same", "it's just one of those things"), the more you look like the undercover and the sooner you're voted out. The right play is to BLEND IN: infer the majority's word from their clues, then give a CONCRETE clue that fits THAT word — the kind a fellow civilian would give (a little veiled is fine, but it must have real content and sound legit) — so you hide among the civilians instead of being the first one suspected.
 5. If nothing clever comes, at least stay veiled and leave room — never blurt your word.
 
 ${HUMANLIKE.en}
