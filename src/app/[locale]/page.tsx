@@ -8,6 +8,17 @@ import { Link } from "@/i18n/navigation";
 export default function Landing() {
   const t = useTranslations("Landing");
   const modes = [t("modeSpectate"), t("modePlay"), t("modeMasterclass")];
+  const steps = [
+    { title: t("step1Title"), desc: t("step1Desc") },
+    { title: t("step2Title"), desc: t("step2Desc") },
+    { title: t("step3Title"), desc: t("step3Desc") },
+    { title: t("step4Title"), desc: t("step4Desc") },
+  ];
+  const aiFeatures = [
+    { title: t("aiFeature1Title"), desc: t("aiFeature1Desc") },
+    { title: t("aiFeature2Title"), desc: t("aiFeature2Desc") },
+    { title: t("aiFeature3Title"), desc: t("aiFeature3Desc") },
+  ];
   return (
     <div style={S.root}>
       <div style={S.grain} />
@@ -39,21 +50,21 @@ export default function Landing() {
 
         <h2 style={{ ...S.setupTitle, fontSize: 18, marginTop: 48, marginBottom: 12 }}>{t("howTitle")}</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-          {([1, 2, 3, 4] as const).map((n) => (
-            <div key={n} style={{ ...S.card, padding: 16 }}>
-              <div style={{ ...S.orderBadge, marginBottom: 10, fontSize: 12, minWidth: 22, height: 22 }}>{n}</div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, marginBottom: 6, letterSpacing: 0.5 }}>{t(`step${n}Title`)}</div>
-              <div style={{ fontSize: 13, lineHeight: 1.65, color: "var(--muted)" }}>{t(`step${n}Desc`)}</div>
+          {steps.map((s, i) => (
+            <div key={i} style={{ ...S.card, padding: 16 }}>
+              <div style={{ ...S.orderBadge, marginBottom: 10, fontSize: 12, minWidth: 22, height: 22 }}>{i + 1}</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, marginBottom: 6, letterSpacing: 0.5 }}>{s.title}</div>
+              <div style={{ fontSize: 13, lineHeight: 1.65, color: "var(--muted)" }}>{s.desc}</div>
             </div>
           ))}
         </div>
 
         <h2 style={{ ...S.setupTitle, fontSize: 18, marginTop: 48, marginBottom: 12 }}>{t("aiTitle")}</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-          {([1, 2, 3] as const).map((n) => (
-            <div key={n} style={{ ...S.card, padding: 16 }}>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, marginBottom: 6, letterSpacing: 0.5, color: "var(--amber)" }}>{t(`aiFeature${n}Title`)}</div>
-              <div style={{ fontSize: 13, lineHeight: 1.65, color: "var(--muted)" }}>{t(`aiFeature${n}Desc`)}</div>
+          {aiFeatures.map((f, i) => (
+            <div key={i} style={{ ...S.card, padding: 16 }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, marginBottom: 6, letterSpacing: 0.5, color: "var(--amber)" }}>{f.title}</div>
+              <div style={{ fontSize: 13, lineHeight: 1.65, color: "var(--muted)" }}>{f.desc}</div>
             </div>
           ))}
         </div>
