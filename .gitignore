@@ -45,6 +45,8 @@ yarn-error.log*
 .commit-msg.txt
 # teamagent monitor local data
 /.teamagent/
+# local git hooks (teamagent-specific, not useful to repo cloners)
+/.githooks/
 # local dev/QA scripts + original design reference (kept local, not shipped)
 /scripts/
 /reference/
