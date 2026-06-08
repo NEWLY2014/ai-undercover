@@ -12,7 +12,14 @@
 
 # misc
 .DS_Store
+Thumbs.db
+Desktop.ini
 *.pem
+
+# editor / IDE
+/.vscode/
+/.idea/
+*.swp
 
 # debug / logs
 npm-debug.log*
@@ -38,6 +45,9 @@ yarn-error.log*
 .commit-msg.txt
 # teamagent monitor local data
 /.teamagent/
+# local dev/QA scripts + original design reference (kept local, not shipped)
+/scripts/
+/reference/
 
 # local env files
 .env*.local
