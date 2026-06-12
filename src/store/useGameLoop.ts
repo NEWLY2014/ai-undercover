@@ -451,7 +451,7 @@ export function useGameLoop() {
               p.model,
             ),
           );
-          const learnings = (res.learnings || []).map((s) => s.toString().trim()).filter(Boolean).slice(0, 3);
+          const learnings = (Array.isArray(res.learnings) ? res.learnings : []).map((s) => s.toString().trim()).filter(Boolean).slice(0, 3);
           if (learnings.length) appendMemory(p.agentId, learnings);
           return learnings.length;
         } catch {
