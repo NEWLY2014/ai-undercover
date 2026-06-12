@@ -192,7 +192,7 @@ export function useGameLoop() {
       raters.push({ id: item.rater.id, name: item.rater.name, emoji: item.rater.emoji });
       reasons[key] = (item.res.reasoning || "").toString();
       const m: Record<string, number> = {};
-      for (const s of item.res.suspicions || []) {
+      for (const s of Array.isArray(item.res.suspicions) ? item.res.suspicions : []) {
         if (s && typeof s.score === "number" && s.name) {
           m[s.name] = Math.max(0, Math.min(100, Math.round(s.score)));
         }
@@ -451,7 +451,7 @@ export function useGameLoop() {
               p.model,
             ),
           );
-          const learnings = (res.learnings || []).map((s) => s.toString().trim()).filter(Boolean).slice(0, 3);
+          const learnings = (Array.isArray(res.learnings) ? res.learnings : []).map((s) => s.toString().trim()).filter(Boolean).slice(0, 3);
           if (learnings.length) appendMemory(p.agentId, learnings);
           return learnings.length;
         } catch {
